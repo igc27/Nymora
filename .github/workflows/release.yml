@@ -1,0 +1,47 @@
+name: Windows release build
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+permissions:
+  contents: write
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run notices
+      - run: npm audit --omit=dev
+      - run: choco install ffmpeg --no-progress -y
+      - run: npm run test:media
+      - run: npm run package
+      - name: Test packaged application
+        shell: pwsh
+        run: |
+          $env:NYMORA_TEST_EXE = (Resolve-Path release/win-unpacked/Nymora.exe).Path
+          npm run test:e2e
+      - name: SHA-256 checksums
+        shell: pwsh
+        run: |
+          Get-ChildItem release -File | Where-Object { $_.Extension -in '.exe','.zip' } | ForEach-Object { "$( (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLower() )  $($_.Name)" } | Set-Content -Path release/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Nymora-Windows-x64
+          path: |
+            release/*.exe
+            release/*.zip
+            release/SHA256SUMS.txt
+      - name: Attach verified assets to draft release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create ${{ github.ref_name }} release/*.exe release/*.zip release/SHA256SUMS.txt --draft --title "Nymora 1.0.0" --notes-file docs/RELEASE_NOTES.md

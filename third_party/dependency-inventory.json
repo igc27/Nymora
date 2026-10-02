@@ -1,0 +1,91 @@
+[
+  {
+    "name": "hls.js",
+    "version": "1.7.3",
+    "license": "Apache-2.0",
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/video-dev/hls.js"
+    },
+    "usage": "Shipped runtime",
+    "licenseFiles": [
+      "LICENSE"
+    ]
+  },
+  {
+    "name": "electron",
+    "version": "44.5.1",
+    "license": "MIT",
+    "repository": "https://github.com/electron/electron",
+    "usage": "Shipped runtime",
+    "licenseFiles": [
+      "LICENSE"
+    ]
+  },
+  {
+    "name": "electron-builder",
+    "version": "26.15.3",
+    "license": "MIT",
+    "repository": {
+      "type": "git",
+      "url": "git+https://github.com/electron-userland/electron-builder.git",
+      "directory": "packages/electron-builder"
+    },
+    "usage": "Build or test only",
+    "licenseFiles": [
+      "LICENSE"
+    ]
+  },
+  {
+    "name": "eslint",
+    "version": "10.12.0",
+    "license": "MIT",
+    "repository": "eslint/eslint",
+    "usage": "Build or test only",
+    "licenseFiles": [
+      "LICENSE"
+    ]
+  },
+  {
+    "name": "@playwright/test",
+    "version": "1.63.0",
+    "license": "Apache-2.0",
+    "repository": {
+      "type": "git",
+      "url": "git+https://github.com/microsoft/playwright.git"
+    },
+    "usage": "Build or test only",
+    "licenseFiles": [
+      "LICENSE",
+      "NOTICE"
+    ]
+  },
+  {
+    "name": "playwright",
+    "version": "1.63.0",
+    "license": "Apache-2.0",
+    "repository": {
+      "type": "git",
+      "url": "git+https://github.com/microsoft/playwright.git"
+    },
+    "usage": "Build or test only",
+    "licenseFiles": [
+      "LICENSE",
+      "NOTICE"
+    ]
+  },
+  {
+    "name": "playwright-core",
+    "version": "1.63.0",
+    "license": "Apache-2.0",
+    "repository": {
+      "type": "git",
+      "url": "git+https://github.com/microsoft/playwright.git"
+    },
+    "usage": "Build or test only",
+    "licenseFiles": [
+      "LICENSE",
+      "NOTICE"
+    ]
+  }
+]

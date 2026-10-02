@@ -1,0 +1,10 @@
+node_modules/
+dist/
+release/
+.upstream/
+.qa/
+test-results/
+*.log
+assets/runtime-access.nsh
+.env*
+!.env.example
