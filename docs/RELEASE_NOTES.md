@@ -12,4 +12,4 @@ Reuses MIT-licensed Stremio addon-client protocol primitives at 7c66830cfc1a8e74
 
 Download Nymora-1.0.0-Windows-x64-Setup.exe, or the optional Nymora-1.0.0-Windows-x64-Portable.zip. Compare the SHA-256 checksum with SHA256SUMS.txt.
 
-This release remains a draft until the released installer has been installed and tested on Windows. Release notes do not replace recorded test evidence.
+Published at https://github.com/igc27/Nymora/releases/tag/v1.0.0. The installer downloaded from the public release matches its SHA-256 checksum, installs successfully and passes all 33 desktop media-flow checks. A clean public source clone passes lint, nine integration tests, renderer build and Windows Setup/ZIP packaging. The downloaded portable copy also passes startup, About/version, sandbox and license-notice smoke checks. See docs/QA.md and docs/release-evidence.json.

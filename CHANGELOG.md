@@ -2,7 +2,7 @@
 
 ## Nymora 1.0.0
 
-Verified Windows release candidate. Publication and downloaded-release status are recorded in docs/QA.md.
+Published Windows x64 release. The public-download installer was installed and passed the complete desktop flow; verification is recorded in docs/QA.md.
 
 * Validated manifest URL installation and persistent local addon management.
 * Reused Stremio addon-client resource matching and request encoding.

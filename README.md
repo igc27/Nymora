@@ -8,11 +8,11 @@ Bring your own compatible addons. Browse their catalogs, search for a title, cho
 
 Nymora is an independent project, not affiliated with, sponsored by or endorsed by Stremio. It reuses selected MIT-licensed Stremio addon-client components and follows the HTTP addon protocol. It does not provide or host movies or television content. Third-party addons are independently maintained services.
 
-**Release status:** release candidate until all gates in [docs/QA.md](docs/QA.md) are verified. A version number is not proof that the Windows release has shipped.
+**Release status:** [Nymora 1.0.0 is published](https://github.com/igc27/Nymora/releases/tag/v1.0.0). The installer downloaded from that public release passed all 33 desktop media-flow checks. See [docs/QA.md](docs/QA.md).
 
 ## Windows installation
 
-Use the [project release page](https://github.com/igc27/Nymora/releases) when the verified release is published. Download `Nymora-1.0.0-Windows-x64-Setup.exe`, compare its SHA-256 value with `SHA256SUMS.txt`, and run it. The installer supports a per-user installation, Start Menu and optional desktop shortcuts, and uninstall through Windows Settings. Windows 10/11 x64 is the target. The initial release is unsigned.
+Use the [Nymora 1.0.0 release page](https://github.com/igc27/Nymora/releases/tag/v1.0.0). Download `Nymora-1.0.0-Windows-x64-Setup.exe`, compare its SHA-256 value with `SHA256SUMS.txt`, and run it. The installer supports a per-user installation, Start Menu and optional desktop shortcuts, and uninstall through Windows Settings. Windows 10/11 x64 is the target; Windows 11 was tested. The initial release is unsigned.
 
 An optional `Nymora-1.0.0-Windows-x64-Portable.zip` contains the same desktop client. Extract it before launching `Nymora.exe`. Portable mode uses the ordinary local data folder unless `NYMORA_DATA_DIR` is explicitly set.
 

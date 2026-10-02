@@ -1,0 +1,58 @@
+{
+  "application": "Nymora",
+  "version": "1.0.0",
+  "repository": "https://github.com/igc27/Nymora",
+  "release": "https://github.com/igc27/Nymora/releases/tag/v1.0.0",
+  "tag": "v1.0.0",
+  "sourceCommit": "77d0f95653855379ac27930c65b10c3afe59d2c8",
+  "timestamp": "2026-10-02T23:20:08.762Z",
+  "platform": "Windows 11 x64, build 26200",
+  "cleanPublicClone": {
+    "dependencyInstall": "PASS",
+    "lint": "PASS",
+    "integrationTests": 9,
+    "rendererBuild": "PASS",
+    "setupAndZipPackaging": "PASS"
+  },
+  "assets": [
+    {
+      "filename": "Nymora-1.0.0-Windows-x64-Setup.exe",
+      "sha256": "8b3ee07f3fcc633f85361cd637789431276b795e419f00ccedbccfe3fdf911ea",
+      "publicDownloadVerified": true
+    },
+    {
+      "filename": "Nymora-1.0.0-Windows-x64-Portable.zip",
+      "sha256": "bf41da60fb1c40369a0274575aee56fb53f0d414e2866cc315a4e9dffef95ef5",
+      "publicDownloadVerified": true
+    }
+  ],
+  "previousUninstallExit": 0,
+  "downloadedSetupInstallExit": 0,
+  "installedVersion": "1.0.0",
+  "downloadedSetupDesktopChecks": 33,
+  "installedDesktopEvidence": "qa-evidence.json",
+  "ordinaryDefaultProfileLaunch": "PASS",
+  "downloadedPortableSmoke": {
+    "result": "PASS",
+    "version": "1.0.0",
+    "sandbox": true,
+    "contextIsolation": true,
+    "nodeIntegration": false,
+    "noticesPreserved": true,
+    "timestamp": "2026-10-02T23:19:05.335Z"
+  },
+  "portableAndInstalledArchiveSha256": "1f583ad41aa7e6f1391e4f5578d17a27e25f9379c1387e77d07a6e9d810be90b",
+  "unsigned": true,
+  "noBundledAddons": true,
+  "legalTestMediaOnly": true,
+  "ci": {
+    "checks": {
+      "result": "PASS",
+      "url": "https://github.com/igc27/Nymora/actions/runs/37076524060"
+    },
+    "windowsRelease": {
+      "result": "PASS",
+      "url": "https://github.com/igc27/Nymora/actions/runs/37076701414"
+    }
+  }
+}

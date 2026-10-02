@@ -1,6 +1,6 @@
 # Nymora 1.0.0 verification log
 
-Date: 2026-10-03 (Asia/Riyadh). Local release gates pass. Public source/release and the downloaded-release checks are recorded below as they complete.
+Date: 2026-10-03 (Asia/Riyadh). Local, public-source, release-download and installed-release verification gates pass.
 
 ## Build and dependency results
 
@@ -36,7 +36,18 @@ Only original developer-generated video and original subtitle text were used. Th
 
 ## Publication and clean-user gates
 
-Pending: secret scan, public repository, clean public clone/build, v1.0.0 release upload, download the published installer, installation of that downloaded file and final installed-release smoke test. The release is not declared complete until these gates pass.
+**All required gates passed.** Public repository: https://github.com/igc27/Nymora. Published release: https://github.com/igc27/Nymora/releases/tag/v1.0.0, title **Nymora 1.0.0**. Source tag **v1.0.0** points to **77d0f95653855379ac27930c65b10c3afe59d2c8**. Publication includes only scanned, Git-tracked project source; private upstream checkouts, signing materials, credentials, local viewing data, dependencies and build outputs are excluded.
+
+A separate clone from the public repository installed dependencies with `npm ci`, passed lint and all nine unit/HTTP tests, built the renderer, regenerated notices and produced both the Setup EXE and portable ZIP with `npm run package`. The tagged commit's GitHub Build and test workflow also passed: https://github.com/igc27/Nymora/actions/runs/37076524060. The independent Windows release workflow passed packaging and the packaged desktop flow: https://github.com/igc27/Nymora/actions/runs/37076701414. It preserves the existing, locally installed-and-tested public release assets.
+
+The public release contains **Nymora-1.0.0-Windows-x64-Setup.exe**, **Nymora-1.0.0-Windows-x64-Portable.zip**, and **SHA256SUMS.txt**. Both binaries were downloaded again from their public GitHub release URLs and matched the original build and published SHA-256 values:
+
+* Setup: `8b3ee07f3fcc633f85361cd637789431276b795e419f00ccedbccfe3fdf911ea`
+* Portable: `bf41da60fb1c40369a0274575aee56fb53f0d414e2866cc315a4e9dffef95ef5`
+
+The previous installed copy was uninstalled (exit **0**, executable removed), then the **downloaded public Setup** was installed (exit **0**). The resulting installed executable passed **all 33 desktop checks**, including actual decoded movie/episode playback, Arabic/English subtitles and progress across restart/native window closure. The final machine-readable desktop evidence above comes from this downloaded-release installation. A separate ordinary launch with the default user-data location was visually inspected and shows the Nymora home interface with no preinstalled addons.
+
+The downloaded portable ZIP was extracted and passed startup, Settings/About version, displayed upstream/NSIS notices, sandbox/context isolation and disabled Node integration checks. Its application archive has exactly the same SHA-256 as the Setup-installed application archive. Electron and Chromium license files are present beside the executable. See [release-evidence.json](release-evidence.json) for the public-download receipt; no private local paths are published.
 
 ## Compatibility limits
 
