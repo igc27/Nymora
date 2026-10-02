@@ -44,4 +44,10 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create ${{ github.ref_name }} release/*.exe release/*.zip release/SHA256SUMS.txt --draft --title "Nymora 1.0.0" --notes-file docs/RELEASE_NOTES.md
+        run: |
+          gh release view ${{ github.ref_name }} --json id 1>$null 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Output 'The release already exists. Existing assets remain intact; the new build is available as a workflow artifact.'
+          } else {
+            gh release create ${{ github.ref_name }} release/*.exe release/*.zip release/SHA256SUMS.txt --draft --title "Nymora 1.0.0" --notes-file docs/RELEASE_NOTES.md
+          }
