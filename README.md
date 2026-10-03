@@ -8,7 +8,7 @@ Bring your own compatible addons. Browse their catalogs, search for a title, cho
 
 Nymora is an independent project, not affiliated with, sponsored by or endorsed by Stremio. It reuses selected MIT-licensed Stremio addon-client components and follows the HTTP addon protocol. It does not provide or host movies or television content. Third-party addons are independently maintained services.
 
-**Release status:** Version 1.1.0 adds consent-gated BitTorrent streaming. See [P2P verification](docs/P2P_QA.md). The earlier [1.0.0 release](https://github.com/igc27/Nymora/releases/tag/v1.0.0) and its [verification record](docs/QA.md) remain available.
+**Release status:** [Version 1.1.0 is published](https://github.com/igc27/Nymora/releases/tag/v1.1.0) with consent-gated BitTorrent streaming. Its public installer passed the full P2P and HTTP/HLS desktop flows; both public downloads have verified checksums. See [P2P verification](docs/P2P_QA.md). The earlier [1.0.0 release](https://github.com/igc27/Nymora/releases/tag/v1.0.0) and its [verification record](docs/QA.md) remain available.
 
 ## Windows installation
 

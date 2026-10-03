@@ -39,7 +39,18 @@ Local build SHA-256 values:
 * Nymora-1.1.0-Windows-x64-Setup.exe: `c3c8f31194ddc02a56a9928fac31fe40e8b33fad1ec62ba73247d25e3787be07`
 * Nymora-1.1.0-Windows-x64-Portable.zip: `f4d3d3e08d4183cd6509af4984d9e8e694e9565723c7dde52c391b379b34f661`
 
-Public release/download results are recorded once publication completes; the above establishes the local built-and-installed application.
+The public [v1.1.0 release](https://github.com/igc27/Nymora/releases/tag/v1.1.0) targets commit `5a817943c0110a67d9f502246dbcaad3f70711bb`. Its [Windows release workflow](https://github.com/igc27/Nymora/actions/runs/37087906157) passed packaged HTTP and P2P testing before attaching the binaries. Source CI also passed.
+
+Both public assets were downloaded independently and their hashes matched the public checksum manifest and GitHub asset digests. The downloaded installer completed with exit 0. Its installed application passed **all 16 P2P and 33 HTTP/HLS desktop checks**, including the real engine integration. The public-build P2P test decoded 13 frames at 640×360 with 901120 of 3627633 selected-file bytes downloaded; a fresh magnet session resumed at 60.437228 seconds. Current machine-readable desktop evidence is from that public installer; the separate unmocked native-notice evidence above is from the earlier local build of the same source.
+
+The downloaded portable ZIP passed startup, version, About/notices, sandbox, context isolation and disabled Node-integration checks. Its `resources/app.asar` SHA-256 matches the installed public application: `065d6b9e630157d0b64c7dd3fd5f5536af84ada41ff20d5142b07321bf53eca4`.
+
+Public release SHA-256 values (these differ from local build artifacts):
+
+* Nymora-1.1.0-Windows-x64-Setup.exe: `744177727e83c137616fe90fbc68e29089ad4db8036120732d562dca24ce64fd`
+* Nymora-1.1.0-Windows-x64-Portable.zip: `fcf2e977c33a79bf28e18d918600d649611232f2f28947fa0a600c0b42f79b44`
+
+See [public release verification](p2p-release-evidence.json) and [the published release screenshot](screenshots/release-1.1.0.png). The 1.0.0 release and its historical verification record remain unchanged.
 
 ## Dependency audit and limits
 

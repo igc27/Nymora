@@ -1,0 +1,60 @@
+{
+  "application": "Nymora",
+  "version": "1.1.0",
+  "verifiedAt": "2026-10-03T02:09:52.482Z",
+  "release": "https://github.com/igc27/Nymora/releases/tag/v1.1.0",
+  "tagCommit": "5a817943c0110a67d9f502246dbcaad3f70711bb",
+  "sourceCI": [
+    {
+      "run": 37087906111,
+      "result": "SUCCESS"
+    },
+    {
+      "run": 37087905401,
+      "result": "SUCCESS"
+    }
+  ],
+  "releaseWorkflow": {
+    "run": 37087906157,
+    "result": "SUCCESS",
+    "packagedMediaFlowTests": true
+  },
+  "downloads": [
+    {
+      "name": "Nymora-1.1.0-Windows-x64-Setup.exe",
+      "bytes": 123902953,
+      "sha256": "744177727e83c137616fe90fbc68e29089ad4db8036120732d562dca24ce64fd"
+    },
+    {
+      "name": "Nymora-1.1.0-Windows-x64-Portable.zip",
+      "bytes": 170318366,
+      "sha256": "fcf2e977c33a79bf28e18d918600d649611232f2f28947fa0a600c0b42f79b44"
+    }
+  ],
+  "downloadHashesMatchManifestAndGitHub": true,
+  "publicSetup": {
+    "installerExitCode": 0,
+    "installedVersion": "1.1.0",
+    "p2pDesktopChecks": 16,
+    "p2pTimestamp": "2026-10-03T02:08:16.652Z",
+    "httpDesktopChecks": 33,
+    "httpTimestamp": "2026-10-03T02:08:23.872Z",
+    "realEngineIntegration": "PASS"
+  },
+  "publicPortable": {
+    "result": "PASS",
+    "version": "1.1.0",
+    "sandbox": true,
+    "contextIsolation": true,
+    "nodeIntegration": false,
+    "noticesPreserved": true,
+    "timestamp": "2026-10-03T02:08:11.577Z"
+  },
+  "identicalApplicationArchives": {
+    "sha256": "065d6b9e630157d0b64c7dd3fd5f5536af84ada41ff20d5142b07321bf53eca4",
+    "match": true
+  },
+  "testContent": "Original developer-owned media and subtitles; loopback tracker and seeder; no unauthorized content or public content indexes",
+  "unmockedNativeNotice": "Verified against the earlier locally built Setup-installed 1.1.0 from the same source; see p2p-native-evidence.json",
+  "limits": "Chromium codecs; v1/hybrid magnets; optional uTP omitted; cache must fit selected video; public discovery and WebRTC interoperability not independently certified; Windows 11 tested; unsigned installer"
+}

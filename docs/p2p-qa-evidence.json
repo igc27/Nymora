@@ -1,7 +1,7 @@
 {
   "application": "Nymora",
   "version": "1.1.0",
-  "timestamp": "2026-10-03T01:43:03.825Z",
+  "timestamp": "2026-10-03T02:08:16.652Z",
   "legalMedia": "Developer-owned generated video; only loopback tracker and seeder; DHT/LSD/port mapping disabled for this isolated test",
   "nativeDialogDecisions": "Explicit test decisions injected at Electron dialog API; native UI separately inspected",
   "evidence": [
@@ -33,7 +33,7 @@
     {
       "step": "Confirmed infoHash resolves real peer metadata, selects explicit file and decodes video before full download",
       "result": "PASS",
-      "details": "{\"position\":0.314295,\"duration\":90,\"frames\":13,\"width\":640,\"height\":360,\"downloaded\":884736,\"videoSize\":3627633}"
+      "details": "{\"position\":0.325161,\"duration\":90,\"frames\":13,\"width\":640,\"height\":360,\"downloaded\":901120,\"videoSize\":3627633}"
     },
     {
       "step": "P2P pause and resume",
@@ -63,7 +63,7 @@
     {
       "step": "Magnet playback after restart requires fresh consent and resumes saved position",
       "result": "PASS",
-      "details": "{\"position\":60.424017,\"duration\":90,\"frames\":12,\"width\":640,\"height\":360}"
+      "details": "{\"position\":60.437228,\"duration\":90,\"frames\":8,\"width\":640,\"height\":360}"
     },
     {
       "step": "Natural playback completion saves progress and stops the P2P session",
