@@ -48,7 +48,25 @@ jobs:
         run: |
           gh release view ${{ github.ref_name }} --json id 1>$null 2>$null
           if ($LASTEXITCODE -eq 0) {
-            Write-Output 'The release already exists. Existing assets remain intact; the new build is available as a workflow artifact.'
+            $existingAssets = @(gh release view ${{ github.ref_name }} --json assets --jq '.assets[].name')
+            $buildAssets = @(Get-ChildItem release -File | Where-Object { $_.Extension -in '.exe','.zip' })
+            foreach ($asset in $buildAssets) {
+              if ($asset.Name -notin $existingAssets) {
+                gh release upload ${{ github.ref_name }} $asset.FullName
+                if ($LASTEXITCODE -ne 0) { throw "Could not attach verified asset $($asset.Name)" }
+              }
+            }
+            if ('SHA256SUMS.txt' -notin $existingAssets) {
+              $published = gh api repos/${{ github.repository }}/releases/tags/${{ github.ref_name }} | ConvertFrom-Json
+              $checksumLines = foreach ($asset in $published.assets | Where-Object { $_.name -match '\.(exe|zip)$' }) {
+                if ($asset.digest -notmatch '^sha256:[a-f0-9]{64}$') { throw "Missing SHA-256 digest for $($asset.name)" }
+                "$($asset.digest.Substring(7))  $($asset.name)"
+              }
+              $checksumLines | Set-Content -LiteralPath release/SHA256SUMS.txt
+              gh release upload ${{ github.ref_name }} release/SHA256SUMS.txt
+              if ($LASTEXITCODE -ne 0) { throw 'Could not attach release checksums' }
+            }
+            Write-Output 'Missing verified assets attached. Existing release assets remain intact.'
           } else {
             gh release create ${{ github.ref_name }} release/*.exe release/*.zip release/SHA256SUMS.txt --draft --title "Nymora ${{ github.ref_name }}" --notes-file docs/RELEASE_NOTES.md
           }
