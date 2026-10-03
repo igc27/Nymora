@@ -1,0 +1,8 @@
+{
+  "name": "compact2string",
+  "version": "1.4.1-nymora.1",
+  "description": "Nymora's original BitTorrent compact peer list decoder",
+  "main": "index.cjs",
+  "license": "MIT",
+  "author": "Mohammed Alanazi"
+}

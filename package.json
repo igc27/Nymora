@@ -1,7 +1,7 @@
 {
   "name": "nymora",
   "productName": "Nymora",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Independent local-first desktop media client for compatible addons",
   "author": "Mohammed Alanazi",
   "license": "MIT",
@@ -10,15 +10,20 @@
     "start": "npm run build && electron .",
     "build": "node scripts/build.cjs",
     "lint": "eslint src scripts tests",
-    "test": "node --test tests/unit.test.cjs",
+    "test": "node --test tests/*.unit.test.cjs tests/unit.test.cjs",
     "test:e2e": "node tests/e2e.cjs",
+    "test:p2p": "node tests/p2p.integration.cjs && node tests/p2p.e2e.cjs",
+    "test:p2p:native": "node tests/p2p.native.cjs",
     "test:media": "node scripts/test-media.cjs",
     "demo": "node tests/fixture.cjs",
     "package": "npm run build && electron-builder --win nsis zip --x64 --publish never",
     "notices": "node scripts/notices.cjs"
   },
   "dependencies": {
-    "hls.js": "1.7.3"
+    "bittorrent-tracker": "file:vendor/bittorrent-tracker",
+    "compact2string": "file:vendor/compact-peer-address",
+    "hls.js": "1.7.3",
+    "webtorrent": "3.0.21"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",
@@ -64,5 +69,9 @@
       "include": "assets/installer.nsh"
     },
     "artifactName": "Nymora-${version}-Windows-x64-Portable.${ext}"
+  },
+  "overrides": {
+    "bittorrent-tracker": "$bittorrent-tracker",
+    "compact2string": "$compact2string"
   }
 }

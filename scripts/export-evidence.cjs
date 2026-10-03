@@ -7,8 +7,9 @@ for (const folder of folders) {
   if (!fs.existsSync(file)) continue;
   const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
   if (!raw.evidence.some(step => step.step === 'End-to-end core media flow' && step.result === 'PASS')) continue;
-  const result = { application: 'Nymora', version: '1.0.0', timestamp: raw.timestamp, executable: raw.executablePath.includes('Programs\\Nymora') ? 'Installed Windows Setup application' : 'Packaged/development Windows application', runner: require('@playwright/test/package.json').version, legalMedia: 'Original developer-generated 90-second motion/color/tone video; original English and Arabic test subtitles', evidence: raw.evidence };
-  fs.writeFileSync('docs/qa-evidence.json', JSON.stringify(result, null, 2) + '\n');
+  const result = { application: 'Nymora', version: require('../package.json').version, timestamp: raw.timestamp, executable: raw.executablePath.includes('Programs\\Nymora') ? 'Installed Windows Setup application' : 'Packaged/development Windows application', runner: require('@playwright/test/package.json').version, legalMedia: 'Original developer-generated 90-second motion/color/tone video; original English and Arabic test subtitles', evidence: raw.evidence };
+  const output = result.version === '1.0.0' ? 'docs/qa-evidence.json' : `docs/qa-evidence-${result.version}.json`;
+  fs.writeFileSync(output, JSON.stringify(result, null, 2) + '\n');
   console.log(`Exported ${raw.evidence.filter(step => step.result === 'PASS').length} passing desktop checks, with local machine paths omitted.`);
   process.exit(0);
 }

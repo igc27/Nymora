@@ -1,0 +1,90 @@
+{
+  "application": "Nymora",
+  "version": "1.1.0",
+  "timestamp": "2026-10-03T01:43:03.825Z",
+  "legalMedia": "Developer-owned generated video; only loopback tracker and seeder; DHT/LSD/port mapping disabled for this isolated test",
+  "nativeDialogDecisions": "Explicit test decisions injected at Electron dialog API; native UI separately inspected",
+  "evidence": [
+    {
+      "step": "Startup creates no P2P session",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Addon infoHash, magnet and backend sources share source selection",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Legal P2P infoHash: pending and Cancel have zero peer discovery, metadata, transfer and playback activity",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Legal P2P magnet: pending and Cancel have zero peer discovery, metadata, transfer and playback activity",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Legal P2P backend: pending and Cancel have zero peer discovery, metadata, transfer and playback activity",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Confirmed infoHash resolves real peer metadata, selects explicit file and decodes video before full download",
+      "result": "PASS",
+      "details": "{\"position\":0.314295,\"duration\":90,\"frames\":13,\"width\":640,\"height\":360,\"downloaded\":884736,\"videoSize\":3627633}"
+    },
+    {
+      "step": "P2P pause and resume",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Future seek reprioritizes byte-range pieces without a full download",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "English and Arabic addon subtitles work during torrent playback",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Cache cannot be cleared while pieces are serving playback",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Exit saves torrent progress and closes P2P sockets and streaming endpoint",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Magnet playback after restart requires fresh consent and resumes saved position",
+      "result": "PASS",
+      "details": "{\"position\":60.424017,\"duration\":90,\"frames\":12,\"width\":640,\"height\":360}"
+    },
+    {
+      "step": "Natural playback completion saves progress and stops the P2P session",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "P2P backend episode playback uses exact ID and native window close saves progress",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Bounded cache usage, adjustable limit and Clear torrent cache",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Complete legal P2P media flow",
+      "result": "PASS",
+      "details": ""
+    }
+  ],
+  "executable": "Installed Windows Setup application"
+}

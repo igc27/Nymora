@@ -1,5 +1,15 @@
 # Changelog
 
+## Nymora 1.1.0
+
+* Fresh native P2P Streaming Notice for every infoHash, magnet or P2P-backend source; Cancel leaves the source list intact and starts no torrent activity.
+* Trusted-backend WebTorrent integration: real peer metadata, file index/name/size hints, supplied tracker/DHT hints, selected-file sequential streaming and token-protected byte ranges for seeking.
+* Shared internal player with actual P2P phases, peer/transfer rates, English/Arabic subtitles and persistent movie/episode progress.
+* Bounded owned piece cache with visible usage, adjustable limit, safe clearing and cleanup on cancellation, failure, playback completion and app exit.
+* Runtime dependency audit passes; original upstream notices, native corresponding-source links and production dependency inventory are included.
+
+Legal tests use original developer-owned media and only loopback trackers/peers. See docs/P2P_QA.md for current verification and limitations. Version 1.0.0 remains unchanged.
+
 ## Nymora 1.0.0
 
 Published Windows x64 release. The public-download installer was installed and passed the complete desktop flow; verification is recorded in docs/QA.md.

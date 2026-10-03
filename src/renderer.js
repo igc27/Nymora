@@ -1,7 +1,7 @@
 // Hls is loaded from the pinned local hls.js distribution by index.html.
 const root = document.getElementById('app');
 const call = (op, value) => window.nymora.call(op, value);
-let state, page = 'Home', generation = 0, currentPlayer = null;
+let state, page = 'Home', generation = 0, currentPlayer = null, preparingSource = false;
 const navItems = ['Home', 'Discover', 'Search', 'Library', 'Addons', 'Settings'];
 function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
@@ -159,10 +159,16 @@ async function showSettings(content) {
   const size = el('input', { type: 'range', min: 16, max: 72, value: state.settings.subtitleSize, 'aria-label': 'Subtitle size' });
   size.addEventListener('change', async () => { state = await call('settings', { subtitleSize: Number(size.value) }); });
   const notices = el('pre', { className: 'notices', hidden: true });
+  const cache = await call('cacheSummary');
+  const cacheSize = el('p', { className: 'muted', 'data-testid': 'cache-size' }, `${Math.round(cache.bytes / 1048576)} MB cached`);
+  const cacheLimit = el('input', { type: 'number', min: 256, max: 16384, step: 256, value: cache.limitMB, 'aria-label': 'Torrent cache limit (MB)' });
+  const refreshCache = async () => { const summary = await call('cacheSummary'); cacheSize.textContent = `${Math.round(summary.bytes / 1048576)} MB cached`; };
+  const cachePanel = el('section', { className: 'panel settings' }, el('h2', {}, 'BitTorrent cache'), cacheSize, el('label', {}, 'Limit (MB)', cacheLimit), el('div', { className: 'actions' }, button('Save cache limit', async () => { state = await call('settings', { torrentCacheMB: Number(cacheLimit.value) }); await refreshCache(); toast('Torrent cache limit saved.'); }), button('Refresh cache size', refreshCache, 'button subtle'), button('Clear torrent cache', async () => { await call('clearTorrentCache'); await refreshCache(); toast('Torrent cache cleared.'); }, 'button subtle')), el('p', { className: 'muted' }, 'P2P sources require confirmation for every session. Torrent sessions stop when playback ends; cached pieces stay here until cleared or the next session begins. A video must fit within the selected cache limit.'));
   content.append(el('section', { className: 'panel settings' }, el('h2', {}, 'Subtitles'), el('label', {}, 'Preferred language', language), el('label', {}, 'Text size', size), el('p', { className: 'muted' }, 'Arabic, English and other Unicode subtitles render with automatic text direction. Adjust timing in the player.')),
     el('section', { className: 'panel' }, el('h2', {}, 'Storage & privacy'), el('p', {}, 'Your addons, library, settings and playback progress stay on this computer. Nymora does not collect analytics or upload watch history.'), el('p', { className: 'mono muted' }, state.dataDirectory), el('p', { className: 'muted' }, 'Installed addons receive requests for the titles you browse and play. Removing an addon does not erase your library or history.')),
-    el('section', { className: 'panel' }, el('div', { className: 'wordmark' }, el('img', { src: 'logo.svg', alt: '', width: 40 }), el('h2', {}, 'NYMORA')), el('p', {}, `Version ${state.appVersion}`), el('p', {}, 'Nymora is an independent open-source project. It is not affiliated with, sponsored by, or endorsed by Stremio.'), el('p', {}, 'Copyright © 2026 Mohammed Alanazi. Original Nymora modifications, branding, interface components, and project-specific code. Portions are derived from third-party open-source projects and remain subject to their original licenses and copyright notices.'), el('p', {}, 'Nymora code: MIT. Stremio addon-client components: MIT, Copyright © 2019 SmartCode OOD. Electron: MIT; Chromium and hls.js: their respective bundled notices.'), el('div', { className: 'actions' }, button('GitHub repository', () => call('external', { url: 'https://github.com/igc27/Nymora' })), button('Open-source notices', async () => { notices.textContent = await call('notices'); notices.hidden = !notices.hidden; })), notices),
-    el('section', { className: 'panel' }, el('h2', {}, 'Playback support'), el('p', {}, 'Direct HTTP(S) video and HLS streams supported by Chromium. Some codecs, torrent/infoHash streams, DRM streams and external-service-only sources need engines or services that are not included. If a source fails, choose another source. ASS/SSA subtitles use plain text; authored styling is not preserved. Subtitle files must be UTF-8.')));
+    cachePanel,
+    el('section', { className: 'panel' }, el('div', { className: 'wordmark' }, el('img', { src: 'logo.svg', alt: '', width: 40 }), el('h2', {}, 'NYMORA')), el('p', {}, `Version ${state.appVersion}`), el('p', {}, 'Nymora is an independent open-source project. It is not affiliated with, sponsored by, or endorsed by Stremio.'), el('p', {}, 'Copyright © 2026 Mohammed Alanazi. Original Nymora modifications, branding, interface components, and project-specific code. Portions are derived from third-party open-source projects and remain subject to their original licenses and copyright notices.'), el('p', {}, 'Nymora code: MIT. Stremio addon-client and WebTorrent components: MIT, with their original copyright notices. Electron: MIT; Chromium and hls.js: their respective bundled notices.'), el('div', { className: 'actions' }, button('GitHub repository', () => call('external', { url: 'https://github.com/igc27/Nymora' })), button('Open-source notices', async () => { notices.textContent = await call('notices'); notices.hidden = !notices.hidden; })), notices),
+    el('section', { className: 'panel' }, el('h2', {}, 'Playback support'), el('p', {}, 'Direct HTTP(S), HLS and BitTorrent v1 infoHash/magnet sources use the internal player. P2P discovery, metadata exchange, downloading and uploading only begin after your native confirmation. Availability depends on the source, and codecs depend on Chromium. DRM, external-service-only sources and BitTorrent v2-only magnets are unsupported. ASS/SSA subtitles use plain text; authored styling is not preserved. Subtitle files must be UTF-8.')));
 }
 function languageName(code) { return ({ eng: 'English', en: 'English', ara: 'Arabic · العربية', ar: 'Arabic · العربية', spa: 'Spanish', fra: 'French', deu: 'German', jpn: 'Japanese', por: 'Portuguese', rus: 'Russian', hin: 'Hindi', zho: 'Chinese' })[code] || code; }
 async function openDetails(initial, resume) {
@@ -200,8 +206,9 @@ async function openDetails(initial, resume) {
       if (!response.items.length) sources.append(empty('No streams available', 'Install an addon that provides streams for this title, or retry the available addons.', button('Retry sources', () => loadStreams(video))));
       for (const stream of response.items) {
         const hints = stream.behaviorHints || {};
-        const available = !!stream.url;
-        sources.append(button(el('div', {}, el('span', { className: 'source-label' }, stream.addonName), el('h3', {}, stream.name || stream.title || 'Stream'), stream.name && stream.title && el('p', {}, stream.title), el('p', { className: 'muted' }, [stream.description, hints.filename, hints.videoSize && `${Math.round(hints.videoSize / 1048576)} MB`, stream.language, stream.quality].filter(Boolean).join(' · ')), !available && el('p', { className: 'muted' }, stream.infoHash ? 'Torrent source · streaming engine not included' : 'External or unsupported source')), () => startPlayer(meta, video, stream, resumePosition), 'source'));
+        const available = !!stream.url || stream.nymoraP2P;
+        const bytes = stream.videoSize ?? hints.videoSize;
+        sources.append(button(el('div', {}, el('span', { className: 'source-label' }, stream.addonName), el('h3', {}, stream.name || stream.title || 'Stream'), stream.name && stream.title && el('p', {}, stream.title), el('p', { className: 'muted' }, [stream.description, stream.filename || hints.filename, bytes && `${Math.round(bytes / 1048576)} MB`, stream.language, stream.quality, Number.isInteger(stream.seeders) && stream.seeders >= 0 ? `${stream.seeders} seeders (addon-reported)` : ''].filter(Boolean).join(' · ')), stream.nymoraP2P && el('p', { className: 'p2p-label' }, 'BitTorrent / P2P · confirmation required'), !available && el('p', { className: 'muted' }, 'External or unsupported source')), () => startPlayer(meta, video, stream, resumePosition), 'source'));
       }
     } catch (e) { if (requestId === sourceGeneration) { sources.lastChild.remove(); sources.append(errorBlock(e.message, () => loadStreams(video))); } }
   };
@@ -232,9 +239,21 @@ async function openDetails(initial, resume) {
   }
   content.append(sources);
 }
+async function prepareSource(stream) {
+  if (preparingSource || currentPlayer) throw new Error('Exit or cancel the current playback session first.');
+  preparingSource = true;
+  const text = el('p', { role: 'status', 'data-testid': 'preparation-status' }, 'Preparing source…');
+  const stage = el('dialog', { className: 'preparation', 'aria-label': 'Preparing playback' }, el('h2', {}, 'Preparing playback'), text, button('Cancel preparation', () => call('stop'), 'button subtle'));
+  document.body.append(stage); stage.showModal();
+  stage.addEventListener('cancel', event => { event.preventDefault(); call('stop').catch(e => toast(e.message)); });
+  const timer = setInterval(async () => { try { const status = await call('playbackStatus'); if (status.message) text.textContent = status.message; } catch {} }, 400);
+  try { return await call('source', stream); }
+  finally { clearInterval(timer); stage.close(); stage.remove(); preparingSource = false; }
+}
 async function startPlayer(meta, episode, stream, start) {
-  if (currentPlayer) await currentPlayer.close();
-  const source = await call('source', stream);
+  const source = await prepareSource(stream);
+  if (source.cancelled) return;
+  if (source.p2p) stream = { ...stream, behaviorHints: { ...stream.behaviorHints, filename: source.filename, videoSize: source.videoSize } };
   const previousOverflow = document.body.style.overflow;
   document.body.style.overflow = 'hidden';
   const video = el('video', { playsinline: true, 'aria-label': 'Media player' });
@@ -243,6 +262,8 @@ async function startPlayer(meta, episode, stream, start) {
   overlay.style.fontSize = `${state.settings.subtitleSize}px`;
   const playerError = el('div', { className: 'player-error', role: 'alert', hidden: true });
   const status = el('span', { className: 'player-status', role: 'status' }, 'Connecting…');
+  const p2pInfo = el('span', { className: 'p2p-stats', 'data-testid': 'p2p-stats' });
+  const p2pTimer = source.p2p ? setInterval(async () => { try { const details = await call('playbackStatus'); p2pInfo.textContent = `${details.peers} peers · ↓ ${Math.round(details.downloadSpeed / 1024)} KB/s · ↑ ${Math.round(details.uploadSpeed / 1024)} KB/s`; if (details.phase === 'error') failed(details.message); } catch {} }, 1000) : null;
   const play = button('Pause', () => video.paused ? video.play() : video.pause());
   const mute = button('Mute', () => { video.muted = !video.muted; mute.textContent = video.muted ? 'Unmute' : 'Mute'; });
   const seek = el('input', { type: 'range', min: 0, max: 0, step: 0.1, value: 0, 'aria-label': 'Playback position', oninput: event => { if (Number.isFinite(video.duration)) video.currentTime = Number(event.target.value); } });
@@ -256,12 +277,14 @@ async function startPlayer(meta, episode, stream, start) {
   const subtitleStatus = el('span', { className: 'muted' });
   const layer = el('div', { className: 'player-layer', role: 'dialog', 'aria-label': `Playing ${meta.name}` }, el('header', { className: 'player-header' }, el('div', {}, el('strong', {}, meta.name), el('span', { className: 'muted' }, episode.name || stream.name || ''), status), button('Exit player', close, 'button subtle')), el('div', { className: 'video-stage' }, video, overlay, playerError), el('div', { className: 'player-controls' }, el('div', { className: 'timeline' }, seek, time), el('div', { className: 'control-row' }, play, button('−10s', () => { video.currentTime = Math.max(0, video.currentTime - 10); }), button('+10s', () => { if (Number.isFinite(video.duration)) video.currentTime = Math.min(video.duration, video.currentTime + 10); }), mute, volume, button('Fullscreen', () => call('fullscreen')), el('label', {}, 'Audio', audioSelect)), el('div', { className: 'control-row subtitle-controls' }, el('label', {}, 'Subtitles', subtitleSelect), button('Refresh subtitles', loadSubtitleResults, 'button small'), button('Local subtitle', async () => { const selected = await call('localSubtitle'); if (selected) { ++subtitleRequest; cues = selected.cues; subtitleSelect.value = ''; subtitleStatus.textContent = selected.name; } }, 'button small'), el('label', {}, 'Delay (s)', delay), el('label', {}, 'Text size', size), subtitleStatus)));
   document.body.append(layer);
+  if (source.p2p) layer.querySelector('.player-header>div').append(p2pInfo);
   async function save() {
     if (!Number.isFinite(video.duration) || video.duration <= 0) return;
     state = await call('progress', { id: episode.id, mediaId: meta.id, type: meta.type, name: meta.name, episodeName: episode.name || '', poster: meta.poster, position: video.currentTime, duration: video.duration });
   }
   async function close() {
     if (closed) return; closed = true;
+    clearInterval(p2pTimer);
     await save().catch(e => toast(`Unable to save progress: ${e.message}`));
     video.pause(); hls?.destroy(); video.removeAttribute('src'); video.load();
     document.removeEventListener('keydown', shortcuts); window.removeEventListener('beforeunload', saveOnExit);
@@ -278,7 +301,15 @@ async function startPlayer(meta, episode, stream, start) {
   video.addEventListener('waiting', () => { status.textContent = 'Buffering…'; });
   video.addEventListener('play', () => { play.textContent = 'Pause'; });
   video.addEventListener('pause', () => { play.textContent = 'Play'; if (!closed) { status.textContent = 'Paused'; save().catch(e => toast(e.message)); } });
-  video.addEventListener('ended', () => { status.textContent = 'Finished'; save().catch(e => toast(e.message)); });
+  video.addEventListener('ended', async () => {
+    status.textContent = 'Finished';
+    await save().catch(e => toast(e.message));
+    if (source.p2p) {
+      clearInterval(p2pTimer); await call('stop').catch(e => toast(e.message));
+      play.disabled = true; seek.disabled = true;
+      p2pInfo.textContent = 'P2P session closed · exit to choose a source again';
+    }
+  });
   video.addEventListener('seeked', () => save().catch(e => toast(e.message)));
   function renderSubtitles() {
     const subtitleTime = video.currentTime - Number(delay.value || 0);

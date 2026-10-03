@@ -1,7 +1,7 @@
 'use strict';
 const fs = require('node:fs');
 const path = require('node:path');
-const defaults = () => ({ version: 1, addons: [], library: [], progress: {}, settings: { subtitleLanguage: 'eng', subtitleSize: 32, subtitleDelay: 0, volume: 0.8 } });
+const defaults = () => ({ version: 1, addons: [], library: [], progress: {}, settings: { subtitleLanguage: 'eng', subtitleSize: 32, subtitleDelay: 0, volume: 0.8, torrentCacheMB: 2048 } });
 class Store {
   constructor(directory) {
     this.file = path.join(directory, 'nymora.json');
@@ -12,6 +12,7 @@ class Store {
         const saved = JSON.parse(fs.readFileSync(this.file, 'utf8'));
         if (saved.version !== 1 || !Array.isArray(saved.addons) || !Array.isArray(saved.library) || !saved.progress || typeof saved.progress !== 'object') throw new Error('Invalid storage schema');
         this.data = { ...this.data, ...saved, settings: { ...this.data.settings, ...saved.settings } };
+        if (!Number.isInteger(this.data.settings.torrentCacheMB) || this.data.settings.torrentCacheMB < 256 || this.data.settings.torrentCacheMB > 16384) this.data.settings.torrentCacheMB = 2048;
       }
     } catch {
       fs.copyFileSync(this.file, `${this.file}.recovery-${Date.now()}`);

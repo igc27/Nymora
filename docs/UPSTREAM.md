@@ -21,6 +21,8 @@ Upstream core uses explicit state models and effects behind an Env boundary for 
 
 ## Reviewing future changes
 
+The 1.1.0 torrent backend pins WebTorrent 3.0.21 at `e75f75c7ac6b755c2eb36842c51806da8ff560ff` (MIT) and bittorrent-tracker 11.2.3 at `33fbbc5b9d529650884b1a836dbe1948b56d66a4` (MIT). The tracker fork's numeric IPv4/compact-peer changes and original compact-address compatibility module are documented in OPEN_SOURCE_AUDIT.md. Update their source-controlled file dependencies and regenerate the lockfile together. Include native WebRTC source and notice obligations from third_party/NATIVE_SOURCE.md in future dependency reviews. A new engine must preserve the native consent boundary and pass tests using developer-owned torrents before any playback claim.
+
 Clone each upstream into a separate ignored checkout, fetch its current default branch, and diff from the pinned commit. Compare selected files against vendor/stremio-addon-client and review protocol changes. The complete upstream Git history remains available at the above repositories; Nymora starts its own history and records exact source origins rather than inventing shared ancestry.
 
 Preserve LICENSE.md when updating vendored files. Review any changed license before copying new code. Update this table, OPEN_SOURCE_AUDIT.md and THIRD_PARTY_NOTICES.md, describe modifications, and run unit and desktop end-to-end tests. Merge protocol fixes selectively; do not bring upstream credentials, compiled signing materials, branding, automatic addon collections, analytics or cloud-account requirements into the product.

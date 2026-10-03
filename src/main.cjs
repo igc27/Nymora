@@ -7,7 +7,10 @@ const addons = require('./addons.cjs');
 const { validURL, boundedText } = require('./network.cjs');
 const { parseSubtitles } = require('./subtitles.cjs');
 const { createMediaProxy } = require('./media.cjs');
-let store, media, window, allowClose = false;
+const { TorrentEngine } = require('./torrent-engine.cjs');
+const { Playback } = require('./playback.cjs');
+const { isP2P } = require('./torrent-source.cjs');
+let store, media, playback, torrents, window, allowClose = false, quitting = false;
 if (process.env.NYMORA_DATA_DIR) app.setPath('userData', path.resolve(process.env.NYMORA_DATA_DIR));
 if (!app.requestSingleInstanceLock()) app.quit();
 app.on('second-instance', () => { if (window) { if (window.isMinimized()) window.restore(); window.focus(); } });
@@ -24,7 +27,7 @@ const operations = {
   catalog: query => addons.catalog(store.data.addons, query),
   search: ({ term }) => { if (typeof term !== 'string' || term.length > 500) throw new Error('Search text is too long.'); return addons.search(store.data.addons, term); },
   meta: ({ type, id }) => addons.aggregate(store.data.addons, 'meta', type, id),
-  streams: ({ type, id }) => addons.aggregate(store.data.addons, 'stream', type, id),
+  async streams({ type, id }) { const result = await addons.aggregate(store.data.addons, 'stream', type, id); result.items = result.items.map(stream => ({ ...stream, nymoraP2P: isP2P(stream) })); return result; },
   subtitles: ({ type, id, extra }) => addons.aggregate(store.data.addons, 'subtitles', type, id, extra || {}),
   subtitleFile: async ({ url }) => parseSubtitles(await boundedText(validURL(url), 4 * 1024 * 1024)),
   async localSubtitle() {
@@ -34,8 +37,11 @@ const operations = {
     if (fs.statSync(file).size > 4 * 1024 * 1024) throw new Error('Subtitle file is too large.');
     return { name: path.basename(file), cues: parseSubtitles(fs.readFileSync(file, 'utf8')) };
   },
-  source: stream => media.source(stream),
-  stop: () => media.stop(),
+  source: stream => playback.source(stream),
+  stop: () => playback.stop(),
+  playbackStatus: () => playback.status(),
+  cacheSummary: () => ({ bytes: torrents.cache.size(), limitMB: store.data.settings.torrentCacheMB, active: !!torrents.client }),
+  clearTorrentCache: () => { const removedBytes = torrents.cache.clear(); return { removedBytes, bytes: torrents.cache.size() }; },
   quitReady: () => { allowClose = true; setImmediate(() => window.close()); },
   progress: entry => { store.progress(entry); return snapshot(); },
   watched({ type, id, mediaId, name, poster, watched }) {
@@ -54,6 +60,12 @@ const operations = {
     const next = {};
     if (typeof value.subtitleLanguage === 'string' && value.subtitleLanguage.length < 30) next.subtitleLanguage = value.subtitleLanguage;
     for (const [key, min, max] of [['subtitleSize', 16, 72], ['subtitleDelay', -120, 120], ['volume', 0, 1]]) if (Number.isFinite(value[key])) next[key] = Math.max(min, Math.min(max, value[key]));
+    if (value.torrentCacheMB !== undefined) {
+      if (!Number.isInteger(value.torrentCacheMB) || value.torrentCacheMB < 256 || value.torrentCacheMB > 16384) throw new Error('Torrent cache limit must be between 256 and 16384 MB.');
+      if (torrents.client) throw new Error('Stop P2P playback before changing its cache limit.');
+      if (torrents.cache.size() > value.torrentCacheMB * 1024 ** 2) torrents.cache.clear();
+      next.torrentCacheMB = value.torrentCacheMB;
+    }
     store.data.settings = { ...store.data.settings, ...next }; store.save(); return snapshot();
   },
   async external({ url }) { await shell.openExternal(validURL(url)); },
@@ -62,6 +74,8 @@ const operations = {
 };
 app.whenReady().then(async () => {
   store = new Store(app.getPath('userData')); media = await createMediaProxy();
+  torrents = new TorrentEngine({ cacheDirectory: path.join(app.getPath('userData'), 'torrent-cache-v1'), localOnly: process.env.NYMORA_P2P_TEST_MODE === 'local-only' });
+  playback = new Playback({ media, torrents, confirm: options => dialog.showMessageBox(window, options), cacheLimit: () => store.data.settings.torrentCacheMB * 1024 ** 2 });
   session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
   session.defaultSession.setPermissionCheckHandler(() => false);
   // Block remote attempts to navigate to local files or execute special protocols.
@@ -93,4 +107,8 @@ app.whenReady().then(async () => {
   await window.loadFile(path.join(app.getAppPath(), 'dist/index.html'));
 }).catch(error => { dialog.showErrorBox('Nymora startup failed', error.message); app.quit(); });
 app.on('window-all-closed', () => app.quit());
-app.on('before-quit', () => media?.close());
+app.on('before-quit', event => {
+  if (quitting || !playback) return;
+  event.preventDefault(); quitting = true;
+  playback.close().finally(() => app.quit());
+});

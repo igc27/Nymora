@@ -50,7 +50,7 @@ async function createMediaProxy() {
   const port = server.address().port;
   return {
     source(stream) {
-      if (!stream || !stream.url) throw new Error(stream?.infoHash ? 'Torrent sources require a streaming engine that is not included in Nymora 1.0.0. Choose an HTTP source.' : stream?.externalUrl ? 'This source opens an external service. Choose an in-app HTTP source.' : 'Unsupported stream. Choose a direct HTTP or HLS source.');
+      if (!stream || !stream.url) throw new Error(stream?.infoHash ? 'Torrent sources must use the P2P backend and its confirmation dialog.' : stream?.externalUrl ? 'This source opens an external service. Choose an in-app HTTP source.' : 'Unsupported stream. Choose a direct HTTP or HLS source.');
       const url = validURL(stream.url);
       const token = randomBytes(24).toString('hex');
       const local = remote => `http://127.0.0.1:${port}/media/${token}/${encodeURIComponent(validURL(remote))}`;

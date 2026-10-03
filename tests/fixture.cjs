@@ -5,7 +5,7 @@ const path = require('node:path');
 const movie = { id: 'nymora:motion', type: 'movie', name: 'Nymora Motion Study', releaseInfo: '2026', runtime: '90 seconds', genres: ['Test media'], description: 'Developer-generated color, motion and tone study for legal playback testing. This is test media, not a commercial movie.' };
 const series = { id: 'nymora:series', type: 'series', name: 'Nymora Test Series', releaseInfo: '2026', description: 'Two developer-controlled test episodes. Both use the original generated motion study.', videos: [{ id: 'nymora:series:1:1', season: 1, episode: 1, title: 'First Motion' }, { id: 'nymora:series:2:1', season: 2, episode: 1, title: 'Second Motion' }] };
 const manifest = { id: 'org.nymora.legal-test', name: 'Nymora legal test addon', version: '1.0.0', description: 'Developer-controlled addon providing only generated test media and original English/Arabic subtitle cues.', types: ['movie', 'series'], idPrefixes: ['nymora:'], resources: ['catalog', 'meta', { name: 'stream', types: ['movie', 'series'], idPrefixes: ['nymora:'] }, { name: 'subtitles' }], catalogs: ['movie', 'series'].map(type => ({ type, id: `test-${type}`, name: 'Motion studies', extra: [{ name: 'search', isRequired: false }, { name: 'skip' }, { name: 'genre', options: ['Test media'], isRequired: false }] })), behaviorHints: { configurable: true } };
-async function startFixture(directory = path.resolve('.qa/media')) {
+async function startFixture(directory = path.resolve('.qa/media'), options = {}) {
   const requests = []; let base;
   const server = http.createServer((req, res) => {
     requests.push(req.url);
@@ -48,6 +48,7 @@ async function startFixture(directory = path.resolve('.qa/media')) {
       return send({ metas: Number(extra.get('skip') || 0) > 0 || (extra.get('search') && !item.name.toLowerCase().includes(extra.get('search').toLowerCase())) ? [] : [item] });
     }
     if (resource === 'meta') return send({ meta: id === movie.id ? movie : id === series.id ? series : null });
+    if (resource === 'stream' && options.streams) return send({ streams: options.streams });
     if (resource === 'stream') return send({ streams: [{ name: 'Generated MP4 · H.264 / AAC', title: 'Original 640 × 360 legal test video', url: `${base}/media/test.mp4`, behaviorHints: { filename: 'Nymora-Motion-Study.mp4', videoSize: fs.existsSync(path.join(directory, 'test.mp4')) ? fs.statSync(path.join(directory, 'test.mp4')).size : 0 } }, { name: 'Generated WebM · VP8 / Vorbis', url: `${base}/media/test.webm` }, { name: 'Generated HLS · H.264 / AAC', url: `${base}/media/test.m3u8` }] });
     if (resource === 'subtitles') return send({ subtitles: ['eng', 'ara'].map(lang => ({ id: `original-${lang}`, lang, label: lang === 'eng' ? 'English · original test' : 'Arabic · العربية · original test', url: `${base}/subtitle/${lang}.srt` })) });
     res.writeHead(404); res.end();

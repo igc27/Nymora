@@ -1,0 +1,8 @@
+{
+  "package": "node-datachannel",
+  "version": "0.32.3",
+  "upstreamRevision": "e495b7efad200bca44038609455c06a7f2ea812d",
+  "binary": "build/Release/node_datachannel.node",
+  "sha256": "9c994ed1262f12313694d34f18a4b8e291b21790360d603a78cd23a4f5539b25",
+  "modified": false
+}

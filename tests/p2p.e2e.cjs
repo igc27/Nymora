@@ -1,0 +1,104 @@
+'use strict';
+const { _electron: electron, expect } = require('@playwright/test');
+const fs = require('node:fs');
+const path = require('node:path');
+const { spawnSync } = require('node:child_process');
+const { startTorrentFixture } = require('./torrent-fixture.cjs');
+async function main() {
+  if (spawnSync(process.execPath, ['scripts/test-media.cjs'], { stdio: 'inherit' }).status !== 0) throw new Error('Original QA media generation failed.');
+  const fixture = await startTorrentFixture();
+  const profile = path.resolve(`.qa/p2p-e2e-${Date.now()}`); fs.mkdirSync(profile, { recursive: true });
+  const evidence = []; let app, page;
+  const executablePath = process.env.NYMORA_TEST_EXE || require('electron');
+  const status = () => page.evaluate(() => window.nymora.call('playbackStatus'));
+  const peerRequests = () => fixture.trackerRequests.filter(url => new URL(url, 'http://localhost').searchParams.get('peer_id') !== Buffer.from(fixture.seeder.peerIdBuffer).toString());
+  const passed = (step, details = '') => { evidence.push({ step, result: 'PASS', details }); console.log(`PASS ${step}${details ? ': ' + details : ''}`); };
+  async function launch() {
+    const env = { ...process.env, NYMORA_DATA_DIR: profile, NYMORA_P2P_TEST_MODE: 'local-only' }; delete env.ELECTRON_RUN_AS_NODE;
+    app = await electron.launch({ executablePath, args: process.env.NYMORA_TEST_EXE ? [] : [path.resolve('.')], env, timeout: 45000 });
+    page = await app.firstWindow(); page.setDefaultTimeout(45000);
+    await expect(page.getByRole('button', { name: 'Addons', exact: true })).toBeVisible();
+    // CI exercises the actual trusted main-process dialog call while supplying
+    // explicit tester decisions. No renderer consent flag or engine mock exists.
+    await app.evaluate(({ dialog }) => {
+      globalThis.nymoraQaNotices = []; globalThis.nymoraQaDecision = null;
+      dialog.showMessageBox = async (_owner, options) => {
+        globalThis.nymoraQaNotices.push(options);
+        return new Promise(resolve => { globalThis.nymoraQaDecision = response => { globalThis.nymoraQaDecision = null; resolve({ response }); }; });
+      };
+    });
+  }
+  async function decide(response) { await app.evaluate((_electron, value) => { globalThis.nymoraQaDecision(value); }, response); }
+  async function choose(label) {
+    await page.getByRole('button', { name: new RegExp(label) }).click();
+    await expect.poll(async () => (await status()).phase).toBe('awaiting-consent');
+    const options = await app.evaluate(() => globalThis.nymoraQaNotices.at(-1));
+    expect(options.title).toBe('P2P Streaming Notice'); expect(options.defaultId).toBe(0); expect(options.cancelId).toBe(0); expect(options.buttons).toEqual(['Cancel', 'I Understand — Play']);
+    for (const text of ['download and upload', 'IP address', 'authorized', 'legality', 'does not grant permission']) expect(options.detail).toContain(text);
+  }
+  async function playing() {
+    await page.waitForFunction(() => { const video = document.querySelector('video'); return video && !video.paused && video.currentTime > 0.3 && video.getVideoPlaybackQuality().totalVideoFrames > 5; }, null, { timeout: 60000 });
+    return page.locator('video').evaluate(video => ({ position: video.currentTime, duration: video.duration, frames: video.getVideoPlaybackQuality().totalVideoFrames, width: video.videoWidth, height: video.videoHeight }));
+  }
+  try {
+    await launch(); expect((await status()).startedSessions).toBe(0); passed('Startup creates no P2P session');
+    await page.getByRole('button', { name: 'Addons', exact: true }).click();
+    await page.getByLabel('Addon manifest URL').fill(`${fixture.base}/manifest.json`); await page.getByRole('button', { name: 'Install addon', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Installed addons (1)' })).toBeVisible();
+    await page.getByRole('button', { name: 'Home', exact: true }).click(); await page.getByRole('button', { name: 'Open Nymora Motion Study' }).click();
+    await expect(page.getByText('BitTorrent / P2P · confirmation required')).toHaveCount(3); passed('Addon infoHash, magnet and backend sources share source selection');
+    for (const label of ['Legal P2P infoHash', 'Legal P2P magnet', 'Legal P2P backend']) {
+      await choose(label); await page.waitForTimeout(1200);
+      expect((await status()).startedSessions).toBe(0); expect(peerRequests()).toHaveLength(0); expect(await page.locator('video').count()).toBe(0);
+      await decide(0); await expect(page.getByRole('dialog', { name: 'Preparing playback' })).toBeHidden();
+      expect((await status()).startedSessions).toBe(0); expect(peerRequests()).toHaveLength(0); passed(`${label}: pending and Cancel have zero peer discovery, metadata, transfer and playback activity`);
+    }
+    await choose('Legal P2P infoHash'); await decide(1);
+    const first = await playing(); expect(first.width).toBe(640); expect(first.height).toBe(360);
+    const progress = await status(); expect(progress.startedSessions).toBe(1); expect(progress.filename).toBe('test.mp4'); expect(progress.downloaded).toBeLessThan(fixture.videoSize); expect(peerRequests().length).toBeGreaterThan(0);
+    passed('Confirmed infoHash resolves real peer metadata, selects explicit file and decodes video before full download', JSON.stringify({ ...first, downloaded: progress.downloaded, videoSize: fixture.videoSize }));
+    await page.getByRole('button', { name: 'Pause', exact: true }).click(); expect(await page.locator('video').evaluate(v => v.paused)).toBe(true);
+    await page.getByRole('button', { name: 'Play', exact: true }).click(); await playing(); passed('P2P pause and resume');
+    await page.getByLabel('Playback position').evaluate(node => { node.value = '60'; node.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.waitForFunction(() => { const video = document.querySelector('video'); return video.currentTime > 60.2 && !video.paused; }, null, { timeout: 60000 });
+    expect((await status()).lastRangeStart).toBeGreaterThan(fixture.videoSize * 0.4); expect((await status()).downloaded).toBeLessThan(fixture.videoSize); passed('Future seek reprioritizes byte-range pieces without a full download');
+    await page.getByLabel('Subtitle track').selectOption({ label: 'English · original test · Nymora legal test addon' }); await expect(page.getByTestId('subtitle-overlay')).toContainText('Original subtitles');
+    await page.getByLabel('Subtitle track').selectOption({ label: 'Arabic · العربية · original test · Nymora legal test addon' }); await expect(page.getByTestId('subtitle-overlay')).toContainText('هذه ترجمة عربية أصلية'); passed('English and Arabic addon subtitles work during torrent playback');
+    fs.mkdirSync('docs/screenshots', { recursive: true }); await page.screenshot({ path: 'docs/screenshots/p2p-playback.png' });
+    await expect(page.getByTestId('p2p-stats')).toContainText('peers');
+    await expect(page.evaluate(() => window.nymora.call('clearTorrentCache'))).rejects.toThrow(/Stop/); passed('Cache cannot be cleared while pieces are serving playback');
+    const previousURL = await page.locator('video').evaluate(v => v.src);
+    await page.getByRole('button', { name: 'Exit player', exact: true }).click(); await expect(page.locator('video')).toHaveCount(0);
+    expect((await status()).phase).toBe('idle'); expect(await fetch(previousURL).catch(() => null)).toBeNull();
+    expect(JSON.parse(fs.readFileSync(path.join(profile, 'nymora.json'))).progress['movie:nymora:motion'].position).toBeGreaterThan(60); passed('Exit saves torrent progress and closes P2P sockets and streaming endpoint');
+    await page.getByRole('button', { name: 'Home', exact: true }).click(); await expect(page.getByRole('heading', { name: 'Continue Watching' })).toBeVisible();
+    await app.close(); await launch(); expect((await status()).startedSessions).toBe(0);
+    await page.getByRole('button', { name: 'Open Nymora Motion Study' }).first().click(); await expect(page.getByLabel('Resume saved progress')).toBeChecked();
+    await choose('Legal P2P magnet'); expect((await status()).startedSessions).toBe(0); await decide(1); const resumed = await playing(); expect(resumed.position).toBeGreaterThan(59); passed('Magnet playback after restart requires fresh consent and resumes saved position', JSON.stringify(resumed));
+    const endedURL = await page.locator('video').evaluate(v => v.src);
+    await page.getByLabel('Playback position').evaluate(node => { node.value = '89'; node.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.waitForFunction(() => document.querySelector('video').ended);
+    await expect.poll(async () => (await status()).phase).toBe('idle');
+    expect(await fetch(endedURL).catch(() => null)).toBeNull();
+    await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeDisabled();
+    passed('Natural playback completion saves progress and stops the P2P session');
+    await page.getByRole('button', { name: 'Exit player', exact: true }).click();
+    await page.getByRole('button', { name: 'Home', exact: true }).click(); await page.getByRole('button', { name: 'Open Nymora Test Series' }).click(); await page.getByLabel('Season').selectOption('2'); await page.getByRole('button', { name: /1\. Second Motion/ }).click();
+    await choose('Legal P2P backend'); await decide(1); await playing();
+    expect(fixture.requests.some(url => url.includes('/stream/series/nymora%3Aseries%3A2%3A1'))).toBe(true);
+    await page.getByLabel('Playback position').evaluate(node => { node.value = '25'; node.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.waitForFunction(() => document.querySelector('video').currentTime >= 25);
+    const closed = app.waitForEvent('close'); await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close()); await closed;
+    expect(JSON.parse(fs.readFileSync(path.join(profile, 'nymora.json'))).progress['series:nymora:series:2:1'].position).toBeGreaterThanOrEqual(25); passed('P2P backend episode playback uses exact ID and native window close saves progress');
+    await launch(); await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    const cache = await page.evaluate(() => window.nymora.call('cacheSummary')); expect(cache.bytes).toBeGreaterThan(0); expect(cache.bytes).toBeLessThanOrEqual(2048 * 1024 ** 2);
+    await page.getByLabel('Torrent cache limit (MB)').fill('256'); await page.getByRole('button', { name: 'Save cache limit' }).click(); await expect.poll(async () => (await page.evaluate(() => window.nymora.call('cacheSummary'))).limitMB).toBe(256);
+    await page.getByRole('button', { name: 'Clear torrent cache' }).click(); await expect(page.getByTestId('cache-size')).toContainText('0 MB'); passed('Bounded cache usage, adjustable limit and Clear torrent cache');
+    passed('Complete legal P2P media flow');
+  } catch (error) { evidence.push({ result: 'FAIL', error: error.message }); if (page) await page.screenshot({ path: '.qa/p2p-e2e-failure.png' }).catch(() => {}); throw error; }
+  finally {
+    fs.writeFileSync(path.join(profile, 'evidence.json'), JSON.stringify({ application: 'Nymora', version: require('../package.json').version, timestamp: new Date().toISOString(), executablePath, legalMedia: 'Developer-owned generated video; only loopback tracker and seeder; DHT/LSD/port mapping disabled for this isolated test', nativeDialogDecisions: 'Explicit test decisions injected at Electron dialog API; native UI separately inspected', evidence }, null, 2));
+    await app?.close().catch(() => {}); await fixture.close();
+  }
+}
+main().catch(error => { console.error(error); process.exitCode = 1; });

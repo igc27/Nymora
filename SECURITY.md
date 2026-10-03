@@ -1,6 +1,6 @@
 # Security
 
-Version 1.0.x receives security fixes while it is the current release.
+Version 1.1.x receives security fixes while it is the current release.
 
 Report vulnerabilities privately using GitHub's **Report a vulnerability** on the Nymora repository when enabled. If it is unavailable, open a minimal issue requesting a private reporting channel; do not post credentials or a working exploit publicly. Include the version, affected feature and reproducible steps once a private channel is available.
 
@@ -11,3 +11,7 @@ The Windows installer grants the standard ALL APPLICATION PACKAGES SID read/exec
 Third-party addons are independently maintained services. Installing one allows it to receive catalog/search/title/subtitle requests and return media URLs; those services can observe their requests and your IP address. HTTP endpoints are accepted for developer and user-controlled servers, so use HTTPS for untrusted internet services. Configured addon URLs may contain private addon keys in their paths; they are stored locally and should not be included in public screenshots or bug reports. Nymora has no telemetry and does not upload viewing data to its own servers.
 
 Releases are initially unsigned. There is no automatic updater. Obtain binaries from the project's release page and compare SHA256SUMS.txt. Unsupported sources fail visibly instead of invoking arbitrary external programs. Dependency audit results and unresolved findings must be recorded in docs/QA.md before release.
+
+Every infoHash, magnet or backend-marked P2P source is validated in the trusted backend and receives a fresh native P2P Streaming Notice. The native result must explicitly select I Understand — Play; renderer-supplied consent fields cannot bypass it. Cancel, Escape, closing the notice, or cancelling preparation does not start a torrent session. WebTorrent is imported and instantiated only after acceptance. The notice is informational and does not grant content rights. P2P participation can expose the device's IP address and download/upload pieces; third-party sources remain independent.
+
+The engine runs in the trusted main process, behind the existing restricted IPC interface. The player receives only a random-token loopback URL and safe status fields. Torrent paths never become local filesystem paths: a bounded Nymora-owned piece cache uses random session folders and numeric piece files. Clearing preserves unknown files and rejects links/unrecognized cache directories; it requires an inactive session. The default cache limit is 2 GiB and Settings supports 256–16384 MB. Oversized selected videos fail visibly. Stopping/closing playback destroys peers, discovery sockets, pending reads and the endpoint before a new session can start. Web seeds, arbitrary magnet metadata URLs and automatic UPnP/NAT-PMP port mapping are disabled. General DHT bootstrap is library-provided; no content tracker or index is bundled.
