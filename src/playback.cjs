@@ -9,7 +9,7 @@ class Playback {
     if (!isP2P(stream)) { await this.stop(); return this.media.source(stream); }
     // Parsing is pure. The only path to start() follows a fresh response from
     // the trusted native dialog. Renderer-supplied "consent" is never accepted.
-    const source = normalizeTorrent(stream); const request = ++this.request; this.pending = true;
+    const source = normalizeTorrent(stream); this.torrents.selected?.(source); const request = ++this.request; this.pending = true;
     try {
       this.awaitingConsent = true;
       const result = await this.confirm({ ...NOTICE, buttons: [...NOTICE.buttons] }); this.awaitingConsent = false;

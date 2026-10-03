@@ -22,6 +22,8 @@ function clock(seconds) { if (!Number.isFinite(seconds)) return '0:00'; const s 
 function heading(title, caption) { return el('header', { className: 'page-heading' }, el('div', {}, el('p', { className: 'eyebrow' }, 'YOUR SCREEN. YOUR SOURCES.'), el('h1', {}, title), caption && el('p', { className: 'muted' }, caption))); }
 function empty(title, message, action) { return el('div', { className: 'empty' }, el('span', { className: 'empty-symbol' }, '◎'), el('h2', {}, title), el('p', {}, message), action); }
 function errorBlock(message, retry) { return el('div', { className: 'error', role: 'alert' }, el('p', {}, message), retry && button('Retry', retry, 'button small')); }
+function addonWarning(message) { return el('p', { className: 'addon-warning', role: 'status' }, message); }
+const copyP2PDiagnostics = () => call('copyP2PDiagnostics').then(() => toast('Redacted P2P diagnostics copied.'));
 function card(meta, progress) {
   const image = safeImage(meta.poster);
   const art = el('div', { className: 'poster' }, image ? el('img', { src: image, alt: '', loading: 'lazy', onerror: event => event.target.remove() }) : el('span', { className: 'poster-letter' }, (meta.name || '?').slice(0, 1)), progress?.watched && el('span', { className: 'badge' }, 'Watched'));
@@ -173,30 +175,42 @@ async function showSettings(content) {
 function languageName(code) { return ({ eng: 'English', en: 'English', ara: 'Arabic · العربية', ar: 'Arabic · العربية', spa: 'Spanish', fra: 'French', deu: 'German', jpn: 'Japanese', por: 'Portuguese', rus: 'Russian', hin: 'Hindi', zho: 'Chinese' })[code] || code; }
 async function openDetails(initial, resume) {
   const token = ++generation; page = 'Details'; const content = shell();
+  // Start the movie stream query immediately, independently of metadata latency.
+  let firstMovieSources = initial.type === 'movie' ? call('streams', { type: initial.type, id: initial.id }).then(value => ({ value }), error => ({ error })) : null;
   content.append(button('← Back to Home', () => navigate('Home'), 'button subtle'), el('p', { className: 'muted' }, 'Loading details…'));
   let meta = initial, problems = [];
-  try {
-    const result = await call('meta', { type: initial.type, id: initial.id });
+  const metadataRequest = call('meta', { type: initial.type, id: initial.id }).then(value => ({ value }), error => ({ error }));
+  const mergeMetadata = result => {
+    if (result.error) { problems.push(result.error.message); return; }
+    result = result.value;
     if (result.items.length) meta = { ...initial, ...result.items[0] };
     problems = result.errors;
-  } catch (e) { problems.push(e.message); }
+  };
+  if (initial.type !== 'movie') mergeMetadata(await metadataRequest);
   if (token !== generation) return;
   content.lastChild.remove();
   const saved = state.library.some(m => m.id === meta.id && m.type === meta.type);
   const save = button(saved ? 'Remove from Library' : 'Save to Library', async () => { state = await call('library', meta); save.textContent = state.library.some(m => m.id === meta.id && m.type === meta.type) ? 'Remove from Library' : 'Save to Library'; });
-  const image = safeImage(meta.poster);
-  const details = el('section', { className: 'details' }, image && el('img', { className: 'detail-poster', src: image, alt: '' }), el('div', {}, el('p', { className: 'eyebrow' }, meta.type), el('h1', {}, meta.name), el('p', { className: 'muted' }, [meta.releaseInfo, meta.runtime, meta.imdbRating && `Rating ${meta.imdbRating}`].filter(Boolean).join(' · ')), meta.genres?.length && el('p', { className: 'tags' }, meta.genres.join(' · ')), meta.description && el('p', { className: 'description' }, meta.description), Array.isArray(meta.cast) && el('p', { className: 'muted' }, `Cast: ${meta.cast.join(', ')}`), Array.isArray(meta.director) && el('p', { className: 'muted' }, `Director: ${meta.director.join(', ')}`), save));
-  content.append(details); problems.forEach(p => content.append(errorBlock(p, () => openDetails(initial, resume))));
+  const details = el('section', { className: 'details' });
+  const renderMetadata = () => {
+    const image = safeImage(meta.poster);
+    details.replaceChildren(image ? el('img', { className: 'detail-poster', src: image, alt: '' }) : el('span'), el('div', {}, el('p', { className: 'eyebrow' }, meta.type), el('h1', {}, meta.name), el('p', { className: 'muted' }, [meta.releaseInfo, meta.runtime, meta.imdbRating && `Rating ${meta.imdbRating}`].filter(Boolean).join(' · ')), meta.genres?.length && el('p', { className: 'tags' }, meta.genres.join(' · ')), meta.description && el('p', { className: 'description' }, meta.description), (meta.cast || meta.director) && el('details', {}, el('summary', {}, 'Cast and director'), Array.isArray(meta.cast) && el('p', {}, meta.cast.join(', ')), Array.isArray(meta.director) && el('p', {}, meta.director.join(', ')))));
+  };
+  renderMetadata();
+  if (initial.type === 'movie') metadataRequest.then(result => { if (token === generation) { mergeMetadata(result); renderMetadata(); problems.forEach(p => details.append(addonWarning(p))); } });
+  content.append(details); problems.forEach(p => content.append(addonWarning(p)));
   const sources = el('section', { className: 'sources' });
   let sourceGeneration = 0;
   const loadStreams = async video => {
     const requestId = ++sourceGeneration;
-    sources.replaceChildren(el('h2', {}, video.name ? `Sources · ${video.name}` : 'Choose a source'), el('p', { className: 'muted' }, 'Querying installed stream addons…'));
+    sources.replaceChildren(el('h2', {}, video.name ? `Sources · ${video.name}` : 'Watch / Sources'), el('p', { className: 'muted' }, 'Querying installed stream addons…'));
     try {
-      const response = await call('streams', { type: meta.type, id: video.id });
+      const pending = firstMovieSources; firstMovieSources = null;
+      const initialResponse = pending && await pending;
+      if (initialResponse?.error) throw initialResponse.error;
+      const response = initialResponse?.value || await call('streams', { type: meta.type, id: video.id });
       if (token !== generation || requestId !== sourceGeneration) return;
       sources.lastChild.remove();
-      response.errors.forEach(e => sources.append(errorBlock(e, () => loadStreams(video))));
       const progress = state.progress[`${meta.type}:${video.id}`];
       let resumePosition = progress && !progress.watched ? progress.position : 0;
       if (resumePosition > 0) {
@@ -210,6 +224,7 @@ async function openDetails(initial, resume) {
         const bytes = stream.videoSize ?? hints.videoSize;
         sources.append(button(el('div', {}, el('span', { className: 'source-label' }, stream.addonName), el('h3', {}, stream.name || stream.title || 'Stream'), stream.name && stream.title && el('p', {}, stream.title), el('p', { className: 'muted' }, [stream.description, stream.filename || hints.filename, bytes && `${Math.round(bytes / 1048576)} MB`, stream.language, stream.quality, Number.isInteger(stream.seeders) && stream.seeders >= 0 ? `${stream.seeders} seeders (addon-reported)` : ''].filter(Boolean).join(' · ')), stream.nymoraP2P && el('p', { className: 'p2p-label' }, 'BitTorrent / P2P · confirmation required'), !available && el('p', { className: 'muted' }, 'External or unsupported source')), () => startPlayer(meta, video, stream, resumePosition), 'source'));
       }
+      response.errors.forEach(e => sources.append(addonWarning(e)));
     } catch (e) { if (requestId === sourceGeneration) { sources.lastChild.remove(); sources.append(errorBlock(e.message, () => loadStreams(video))); } }
   };
   if (meta.type === 'series') {
@@ -229,25 +244,27 @@ async function openDetails(initial, resume) {
       season.addEventListener('change', showEpisodes);
       const resumedVideo = resume && videos.find(v => v.id === resume.id);
       if (resumedVideo) season.value = resumedVideo.season ?? 0;
-      showEpisodes(); content.append(el('section', {}, el('h2', {}, 'Episodes'), season, episodes));
+      showEpisodes(); content.append(el('section', {}, el('h2', {}, 'Episodes'), season, episodes), sources);
       if (resumedVideo) await loadStreams({ ...resumedVideo, name: resumedVideo.title || resumedVideo.name || resumedVideo.id });
     }
   } else {
     const progress = state.progress[`${meta.type}:${meta.id}`];
-    content.append(button(progress?.watched ? 'Mark unwatched' : 'Mark watched', async () => { state = await call('watched', { type: meta.type, id: meta.id, mediaId: meta.id, name: meta.name, poster: meta.poster, watched: !progress?.watched }); await openDetails(meta); }, 'button subtle'));
-    await loadStreams({ id: meta.id });
+    content.append(sources, el('div', { className: 'title-actions' }, save, button(progress?.watched ? 'Mark unwatched' : 'Mark watched', async () => { state = await call('watched', { type: meta.type, id: meta.id, mediaId: meta.id, name: meta.name, poster: meta.poster, watched: !progress?.watched }); await openDetails(meta); }, 'button subtle')));
+    await loadStreams({ id: initial.id });
   }
-  content.append(sources);
+  if (meta.type === 'series') { if (!sources.isConnected) content.append(sources); content.append(save); }
 }
 async function prepareSource(stream) {
   if (preparingSource || currentPlayer) throw new Error('Exit or cancel the current playback session first.');
   preparingSource = true;
   const text = el('p', { role: 'status', 'data-testid': 'preparation-status' }, 'Preparing source…');
-  const stage = el('dialog', { className: 'preparation', 'aria-label': 'Preparing playback' }, el('h2', {}, 'Preparing playback'), text, button('Cancel preparation', () => call('stop'), 'button subtle'));
+  const diagnosticsText = el('p', { className: 'muted', 'data-testid': 'discovery-diagnostics' });
+  const stage = el('dialog', { className: 'preparation', 'aria-label': 'Preparing playback' }, el('h2', {}, 'Preparing playback'), text, diagnosticsText, button('Copy P2P Diagnostics', copyP2PDiagnostics, 'button subtle'), button('Cancel preparation', () => call('stop'), 'button subtle'));
   document.body.append(stage); stage.showModal();
   stage.addEventListener('cancel', event => { event.preventDefault(); call('stop').catch(e => toast(e.message)); });
-  const timer = setInterval(async () => { try { const status = await call('playbackStatus'); if (status.message) text.textContent = status.message; } catch {} }, 400);
+  const timer = setInterval(async () => { try { const status = await call('playbackStatus'); if (status.message) text.textContent = status.message; if (stream.nymoraP2P && status.phase !== 'awaiting-consent') diagnosticsText.textContent = `Peers: ${status.peers} · Trackers: ${status.trackerWarnings || 0} warnings · DHT: ${status.dhtStatus || 'starting'} · Metadata: ${status.metadataState || 'not started'} · ${Math.round((status.discoveryElapsedMs || 0) / 1000)}s`; } catch {} }, 400);
   try { return await call('source', stream); }
+  catch (error) { if (stream.nymoraP2P) { const sources = document.querySelector('.sources'); sources?.append(el('div', { className: 'p2p-failure', role: 'alert' }, el('p', {}, error.message), button('Copy P2P Diagnostics', copyP2PDiagnostics))); } throw error; }
   finally { clearInterval(timer); stage.close(); stage.remove(); preparingSource = false; }
 }
 async function startPlayer(meta, episode, stream, start) {
@@ -317,7 +334,7 @@ async function startPlayer(meta, episode, stream, start) {
   }
   video.addEventListener('timeupdate', () => { seek.value = video.currentTime; time.textContent = `${clock(video.currentTime)} / ${clock(video.duration)}`; renderSubtitles(); if (Date.now() - lastSave > 5000) { lastSave = Date.now(); save().catch(e => toast(e.message)); } });
   function failed(message) { status.textContent = 'Playback failed'; playerError.hidden = false; playerError.replaceChildren(el('h2', {}, 'Playback failed'), el('p', {}, message), el('p', {}, 'Try another source.'), button('Return to sources', close)); }
-  video.addEventListener('error', () => failed(video.error?.code === 4 ? 'Unsupported stream or codec.' : 'Unable to connect or decode this stream.'));
+  video.addEventListener('error', () => failed([3, 4].includes(video.error?.code) ? source.p2p ? 'Torrent metadata and video bytes arrived, but this codec or container cannot be decoded by Nymora’s Chromium player. Choose a compatible source.' : 'Unsupported stream or codec.' : 'Video data could not be read. Check the source connection.'));
   function refreshAudio() {
     const tracks = hls?.audioTracks || [...(video.audioTracks || [])];
     audioSelect.replaceChildren(...(tracks.length ? tracks.map((track, i) => el('option', { value: i }, track.name || track.label || languageName(track.lang || track.language || '') || `Audio ${i + 1}`)) : [el('option', { value: '' }, 'Default audio')]));

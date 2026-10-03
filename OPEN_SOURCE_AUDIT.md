@@ -1,4 +1,14 @@
-# Nymora 1.0.1 open-source audit
+# Nymora 1.0.2 open-source audit
+
+## Native BitTorrent replacement — 2026-10-03
+
+The shipped backend is librqbit **9.0.1**, pinned to `a499d2f243d124e144aef137afe7cb304a6e3f36` in native/torrent-helper/Cargo.toml and Cargo.lock. Its original [Apache-2.0 license](https://github.com/ikatson/rqbit/blob/v9.0.1/LICENSE), Copyright 2021 Igor Katson, was read and preserved under third_party/rqbit/LICENSE. The original MIT Nymora helper wraps the unmodified engine API. Full transitive Rust dependency licenses and attributions are preserved in third_party/rqbit/DEPENDENCY_NOTICES.md and the packaged notices. cargo-about 0.9.2 generated these from the locked Windows target with unresolved licenses treated as failures. The helper statically links its Microsoft C runtime; its DLL imports are Windows system DLLs. End users need no Rust, Node, Python, Docker, Visual Studio, external FFmpeg or separate torrent client.
+
+The requested [stremio-native/stream-server](https://github.com/stremio-native/stream-server) was inspected at `f585ab6eda9b1411034548c131bb0dc30c6f5f9e`. Its root LICENSE is MIT, Copyright (c) 2025 perpetus. The official v0.1.8 Windows release/build workflow uses libtorrent 2.1.1; the optional librqbit dependency is 8.1.1, despite the README describing librqbit as the default. Its desktop helper also includes FFmpeg/FFprobe expectations, tray/updater behavior and shared lock-file management. No stream-server code or binary is incorporated. A small bundled helper using librqbit directly avoids those extra desktop processes while preserving the required local streaming architecture.
+
+WebTorrent 3.0.21 and the vendored tracker modules below remain development-only local test fixtures. They are excluded from the production dependency inventory and shipped torrent backend; the old audit below records their historical provenance. Nymora uses stable TCP peer transport, DHT, supplied HTTP/HTTPS/UDP trackers, PEX and LSD. Experimental uTP is not enabled. BEP-9 metadata comes from peers; retained HTTP metadata/webseed magnet hints are not fetched. The helper boots idle without a BitTorrent session or network listeners; only trusted native consent permits session creation. Its private HTTP service then binds 127.0.0.1 on a random port with a random credential, and the renderer receives a separate token-protected Range endpoint.
+
+Real installed-client internet-peer results, discovery limitations and exact build evidence are in docs/P2P_QA-1.0.2.md. Existing releases remain unchanged.
 
 Audit started 2026-10-03. This file records evidence and distribution decisions, not a claim that every Stremio repository shares a license.
 

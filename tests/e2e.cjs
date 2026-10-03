@@ -49,7 +49,7 @@ async function main() {
     await nav('Search'); await page.getByLabel('Search titles').fill('Nymora'); await page.getByRole('button', { name: 'Search', exact: true }).last().click();
     await expect(page.getByRole('button', { name: 'Open Nymora Motion Study' })).toBeVisible(); await expect(page.getByRole('button', { name: 'Open Nymora Test Series' })).toBeVisible(); passed('Addon search returns movie and series');
     await page.getByRole('button', { name: 'Open Nymora Motion Study' }).click(); await expect(page.getByRole('heading', { name: 'Nymora Motion Study', exact: true })).toBeVisible();
-    await expect(page.getByRole('alert')).toContainText('HTTP 503'); passed('Network failure visible while another addon still supplies streams');
+    await expect(page.locator('.sources .addon-warning')).toContainText('HTTP 503'); passed('Network failure is a small warning while another addon still supplies streams');
     await page.getByRole('button', { name: 'Save to Library' }).click(); passed('Movie details and Library save');
     await playback('Generated MP4');
     await page.getByLabel('Playback position').evaluate(node => { node.value = '10'; node.dispatchEvent(new Event('input', { bubbles: true })); });

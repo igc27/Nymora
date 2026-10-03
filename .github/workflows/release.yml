@@ -16,6 +16,8 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm run build:native
       - run: npm run lint
       - run: npm test
       - run: npm run notices
@@ -31,6 +33,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Packaged HTTP/HLS checks failed' }
           npm run test:p2p
           if ($LASTEXITCODE -ne 0) { throw 'Packaged P2P checks failed' }
+          $version = node -p "require('./package.json').version"
+          $setup = (Resolve-Path "release/Nymora-$version-Windows-x64-Setup.exe").Path
+          $installer = Start-Process -FilePath $setup -ArgumentList '/S' -WindowStyle Hidden -PassThru -Wait
+          if ($installer.ExitCode -ne 0) { throw 'Windows Setup installation failed' }
+          $env:NYMORA_TEST_EXE = "$env:LOCALAPPDATA\Programs\Nymora\Nymora.exe"
+          if (!(Test-Path -LiteralPath $env:NYMORA_TEST_EXE)) { throw 'Installed client is missing' }
+          npm run test:p2p:public
+          if ($LASTEXITCODE -ne 0) { throw 'Public peer playback failed; release assets must not be published' }
       - name: SHA-256 checksums
         shell: pwsh
         run: |
@@ -42,6 +52,7 @@ jobs:
             release/*.exe
             release/*.zip
             release/SHA256SUMS.txt
+            docs/public-p2p-evidence-1.0.2.json
       - name: Attach verified assets to draft release
         if: startsWith(github.ref, 'refs/tags/')
         shell: pwsh

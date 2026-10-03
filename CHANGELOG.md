@@ -1,5 +1,13 @@
 # Changelog
 
+## Nymora 1.0.2
+
+* Replaces the shipped WebTorrent backend with a bundled, managed librqbit 9.0.1 native helper. Startup is idle; every P2P session requires fresh native consent. The local API uses loopback, random authentication and a random port.
+* Preserves tracker, DHT, explicit peer, filename, size and index hints; fetches metadata from real peers and streams selected video through authenticated localhost byte ranges.
+* Adds real discovery status, distinct startup/discovery/file errors, crash recovery and Copy P2P Diagnostics with a strict redacted field allowlist.
+* Queries movie sources immediately and displays Watch / Sources above Library / Watched controls. Failed addons produce a small warning alongside successful sources; fetch failures retain safe underlying causes.
+* Installs the actual Windows Setup and verifies legal Sintel internet-peer playback, seeking, subtitles and saved progress before the release workflow can attach assets. See docs/P2P_QA-1.0.2.md.
+
 ## Nymora 1.0.1
 
 Requested Alpha version for the existing local BitTorrent capability. The already published 1.0.0 and 1.1.0 releases remain unchanged.

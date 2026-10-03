@@ -1,0 +1,16 @@
+# Bundled Nymora torrent helper notices
+
+Nymora's wrapper is original MIT code. librqbit 9.0.1 is Apache-2.0, Copyright 2021 Igor Katson.
+Pinned source: https://github.com/ikatson/rqbit/tree/a499d2f243d124e144aef137afe7cb304a6e3f36
+This inventory is generated from Cargo.lock for x86_64-pc-windows-msvc.
+
+{{#each licenses}}
+## {{name}}
+
+{{#each used_by}}
+- {{crate.name}} {{crate.version}}{{#if crate.repository}} — {{crate.repository}}{{/if}}
+{{/each}}
+
+{{{text}}}
+
+{{/each}}

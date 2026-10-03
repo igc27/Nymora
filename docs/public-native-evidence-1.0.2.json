@@ -1,0 +1,14 @@
+{
+  "result": "PASS",
+  "version": "1.0.2",
+  "executable": "Nymora.exe",
+  "nativeCancelStartedSessions": 0,
+  "nativeAcceptStartedSessions": 1,
+  "decoded": {
+    "frames": 13,
+    "position": 0.323429
+  },
+  "legalLoopbackMediaOnly": false,
+  "publicInternet": true,
+  "timestamp": "2026-10-03T04:16:59.359Z"
+}

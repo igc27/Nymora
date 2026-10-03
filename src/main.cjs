@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, shell, dialog, session } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, session, clipboard } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { Store } = require('./store.cjs');
@@ -40,6 +40,7 @@ const operations = {
   source: stream => playback.source(stream),
   stop: () => playback.stop(),
   playbackStatus: () => playback.status(),
+  copyP2PDiagnostics: () => { const value = torrents.diagnostics(); clipboard.writeText(JSON.stringify(value, null, 2)); return value; },
   cacheSummary: () => ({ bytes: torrents.cache.size(), limitMB: store.data.settings.torrentCacheMB, active: !!torrents.client }),
   clearTorrentCache: () => { const removedBytes = torrents.cache.clear(); return { removedBytes, bytes: torrents.cache.size() }; },
   quitReady: () => { allowClose = true; setImmediate(() => window.close()); },
@@ -74,7 +75,8 @@ const operations = {
 };
 app.whenReady().then(async () => {
   store = new Store(app.getPath('userData')); media = await createMediaProxy();
-  torrents = new TorrentEngine({ cacheDirectory: path.join(app.getPath('userData'), 'torrent-cache-v1'), localOnly: process.env.NYMORA_P2P_TEST_MODE === 'local-only' });
+  torrents = new TorrentEngine({ cacheDirectory: path.join(app.getPath('userData'), 'torrent-cache-v1'), helperPath: app.isPackaged ? path.join(process.resourcesPath, 'torrent-engine', 'nymora-torrent-helper.exe') : undefined, localOnly: process.env.NYMORA_P2P_TEST_MODE === 'local-only' });
+  await torrents.initialize().catch(() => {});
   playback = new Playback({ media, torrents, confirm: options => dialog.showMessageBox(window, options), cacheLimit: () => store.data.settings.torrentCacheMB * 1024 ** 2 });
   session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
   session.defaultSession.setPermissionCheckHandler(() => false);

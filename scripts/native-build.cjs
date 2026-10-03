@@ -1,0 +1,10 @@
+'use strict';
+const { spawnSync } = require('node:child_process');
+const fs = require('node:fs');
+const path = require('node:path');
+if (process.platform !== 'win32' || process.arch !== 'x64') throw new Error('The native Windows Alpha build requires Windows x64.');
+const cargo = process.env.NYMORA_CARGO || 'cargo';
+const result = spawnSync(cargo, ['build', '--release', '--locked', '--target', 'x86_64-pc-windows-msvc', '--manifest-path', 'native/torrent-helper/Cargo.toml'], { stdio: 'inherit', windowsHide: true, env: { ...process.env, RUSTFLAGS: '-C target-feature=+crt-static' } });
+if (result.error || result.status !== 0) throw new Error('Native torrent helper build failed. Install Rust/MSVC on the build machine. End users need neither.');
+fs.mkdirSync('native/bin', { recursive: true });
+fs.copyFileSync(path.resolve('native/torrent-helper/target/x86_64-pc-windows-msvc/release/nymora-torrent-helper.exe'), 'native/bin/nymora-torrent-helper.exe');

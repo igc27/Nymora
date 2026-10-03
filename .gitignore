@@ -6,5 +6,7 @@ release/
 test-results/
 *.log
 assets/runtime-access.nsh
+native/torrent-helper/target/
+native/bin/
 .env*
 !.env.example

@@ -1,5 +1,6 @@
 'use strict';
 const MAX_JSON = 8 * 1024 * 1024;
+const { causeCode } = require('./p2p-diagnostics.cjs');
 function validURL(input, manifest = false) {
   if (typeof input !== 'string' || input.length > 8192) throw new Error('Enter a valid HTTP or HTTPS URL.');
   let url;
@@ -13,7 +14,9 @@ async function request(input, options = {}) {
   let url = validURL(input);
   const signal = options.signal || AbortSignal.timeout(20000);
   for (let n = 0; n <= 5; n++) {
-    const response = await fetch(url, { ...options, signal, redirect: 'manual' });
+    let response;
+    try { response = await fetch(url, { ...options, signal, redirect: 'manual' }); }
+    catch (error) { const code = causeCode(error); const failure = new Error(`Unable to reach service (${code.replaceAll('_', ' ').toLowerCase()}).`); failure.code = code; throw failure; }
     if ([301, 302, 303, 307, 308].includes(response.status)) {
       const location = response.headers.get('location');
       await response.body?.cancel();

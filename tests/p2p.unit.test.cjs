@@ -14,7 +14,7 @@ test('P2P identifiers route to consent; magnet parameters are data, never execut
   for (const stream of [{ infoHash }, { magnet: `magnet:?xt=urn:btih:${infoHash}` }, { magnetUri: `magnet:?xt=urn:btih:${infoHash}` }, { url: `MAGNET:?xt=urn:btih:${infoHash}` }, { backend: 'p2p' }, { behaviorHints: { p2p: true } }]) assert.equal(isP2P(stream), true);
   assert.equal(isP2P({ url: 'https://example.com/video.mp4' }), false);
   const source = normalizeTorrent({ url: `magnet:?xt=urn:btih:${infoHash}&dn=Original&tr=http%3A%2F%2F127.0.0.1%3A1234%2Fannounce&xs=file%3A%2F%2FC%3A%2Fprivate&ws=https%3A%2F%2Fexample.com`, fileIdx: 0 });
-  assert.equal(source.infoHash, infoHash); assert.equal(source.displayName, 'Original'); assert.equal(source.trackers.length, 1); assert.doesNotMatch(source.magnet, /xs=|ws=|file:/);
+  assert.equal(source.infoHash, infoHash); assert.equal(source.displayName, 'Original'); assert.equal(source.trackers.length, 1); assert.doesNotMatch(source.magnet, /xs=|file:/); assert.match(source.magnet, /ws=/);
   assert.throws(() => normalizeTorrent({ infoHash: 'invalid' }), /Invalid/);
   assert.throws(() => normalizeTorrent({ infoHash, fileIdx: -1 }), /index/);
   assert.throws(() => normalizeTorrent({ infoHash, trackers: ['file:///private'] }), /tracker/);

@@ -1,7 +1,7 @@
 {
   "name": "nymora",
   "productName": "Nymora",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Independent local-first desktop media client for compatible addons",
   "author": "Mohammed Alanazi",
   "license": "MIT",
@@ -9,23 +9,26 @@
   "scripts": {
     "start": "npm run build && electron .",
     "build": "node scripts/build.cjs",
+    "build:native": "node scripts/native-build.cjs",
     "lint": "eslint src scripts tests",
     "test": "node --test tests/*.unit.test.cjs tests/unit.test.cjs",
     "test:e2e": "node tests/e2e.cjs",
     "test:p2p": "node tests/p2p.integration.cjs && node tests/p2p.e2e.cjs",
     "test:p2p:native": "node tests/p2p.native.cjs",
+    "test:p2p:public": "node tests/p2p.public.cjs",
     "test:media": "node scripts/test-media.cjs",
     "demo": "node tests/fixture.cjs",
     "package": "npm run build && electron-builder --win nsis zip --x64 --publish never",
     "notices": "node scripts/notices.cjs"
   },
   "dependencies": {
-    "bittorrent-tracker": "file:vendor/bittorrent-tracker",
-    "compact2string": "file:vendor/compact-peer-address",
     "hls.js": "1.7.3",
-    "webtorrent": "3.0.21"
+    "parse-torrent": "11.0.24"
   },
   "devDependencies": {
+    "bittorrent-tracker": "file:vendor/bittorrent-tracker",
+    "compact2string": "file:vendor/compact-peer-address",
+    "webtorrent": "3.0.21",
     "@playwright/test": "1.63.0",
     "electron": "44.5.1",
     "electron-builder": "26.15.3",
@@ -36,6 +39,7 @@
     "productName": "Nymora",
     "copyright": "Copyright © 2026 Mohammed Alanazi; third-party notices apply",
     "afterPack": "scripts/after-pack.cjs",
+    "extraResources": [{ "from": "native/bin", "to": "torrent-engine", "filter": ["nymora-torrent-helper.exe"] }],
     "directories": {
       "output": "release",
       "buildResources": "assets"
@@ -43,7 +47,7 @@
     "files": [
       "src/**/*.cjs",
       "dist/**/*",
-      "vendor/**/*",
+      "vendor/stremio-addon-client/**/*",
       "assets/**/*",
       "!assets/*.nsh",
       "LICENSE",

@@ -1,0 +1,133 @@
+{
+  "version": "1.0.2",
+  "time": "2026-10-03T04:25:18.869Z",
+  "source": {
+    "name": "Sintel · public internet peers · CC BY 3.0",
+    "infoHash": "08ada5a7a6183aae1e09d831df6748d566095a10",
+    "fileIdx": 5,
+    "sources": [
+      "tracker:udp://tracker.opentrackr.org:1337/announce",
+      "tracker:udp://explodie.org:6969/announce"
+    ],
+    "behaviorHints": {
+      "filename": "Sintel.mp4",
+      "videoSize": 129241752
+    }
+  },
+  "proof": "Only infoHash, trackers and file hints. No HTTP .torrent, xs/as/ws, HTTP video or self-seeder.",
+  "checks": [
+    {
+      "step": "Movie sources queried before metadata and displayed above Library/Watched; failed addon leaves working sources",
+      "result": "PASS"
+    },
+    {
+      "step": "Cancel starts zero P2P sessions",
+      "result": "PASS"
+    },
+    {
+      "step": "Existing internet peers supply metadata, selected video, buffering, loopback Range bytes and decoded player frames",
+      "result": "PASS",
+      "details": {
+        "width": 1024,
+        "height": 436,
+        "position": 0.310675,
+        "duration": 888.064,
+        "frames": 13
+      }
+    },
+    {
+      "step": "Pause/resume",
+      "result": "PASS"
+    },
+    {
+      "step": "Seek reprioritizes distant peer pieces and decodes",
+      "result": "PASS",
+      "details": {
+        "width": 1024,
+        "height": 436,
+        "position": 180.20836,
+        "duration": 888.064,
+        "frames": 86
+      }
+    },
+    {
+      "step": "English, Arabic and Off subtitles use exact movie ID",
+      "result": "PASS"
+    },
+    {
+      "step": "Local subtitle remains available",
+      "result": "PASS"
+    },
+    {
+      "step": "Exit stops peers/endpoint and saves progress",
+      "result": "PASS"
+    },
+    {
+      "step": "Reopened profile requires fresh consent and resumes public torrent",
+      "result": "PASS",
+      "details": {
+        "width": 1024,
+        "height": 436,
+        "position": 180.888168,
+        "duration": 888.064,
+        "frames": 23
+      }
+    },
+    {
+      "step": "Complete public internet P2P client path",
+      "result": "PASS"
+    }
+  ],
+  "executable": "Nymora.exe",
+  "runtime": {
+    "version": "1.0.2",
+    "packaged": true,
+    "electron": "44.5.1",
+    "chromium": "152.0.7977.130"
+  },
+  "discovery": {
+    "phase": "ready",
+    "message": "Buffered · ready to play",
+    "startedSessions": 1,
+    "peers": 6,
+    "downloaded": 7241591,
+    "uploaded": 0,
+    "downloadSpeed": 2235175,
+    "uploadSpeed": 0,
+    "dhtEnabled": true,
+    "pexEnabled": true,
+    "lsdEnabled": true,
+    "metadataState": "received",
+    "errorCode": null,
+    "causeCode": null,
+    "trackerWarnings": 0,
+    "dhtWarning": false,
+    "dhtNodes": 90,
+    "dhtStatus": "searching",
+    "discoveryElapsedMs": 1184,
+    "filename": "Sintel.mp4",
+    "fileSize": 129241752,
+    "rangeRequests": 2,
+    "lastRangeStart": 128614400
+  },
+  "diagnostics": {
+    "infoHash": "08ada5a7a6183aae1e09d831df6748d566095a10",
+    "fileIdx": 5,
+    "filenameHint": "Sintel.mp4",
+    "videoSize": 129241752,
+    "trackerCount": 2,
+    "trackerURLs": [
+      "udp://tracker.opentrackr.org:1337/announce",
+      "udp://explodie.org:6969/announce"
+    ],
+    "dhtEnabled": true,
+    "pexEnabled": true,
+    "lsdEnabled": true,
+    "peerCount": 7,
+    "metadataState": "received",
+    "elapsedDiscoveryMs": 1184,
+    "engineError": null,
+    "cause": null
+  },
+  "result": "PASS"
+}

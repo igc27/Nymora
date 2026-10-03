@@ -1,5 +1,12 @@
 'use strict';
 const VIDEO = /\.(mp4|m4v|webm|mkv|mov|avi|ogv|ogg|ts)$/i;
+const net = require('node:net');
+function peerAddress(value) {
+  if (typeof value !== 'string' || value.length > 300) throw new Error('Invalid peer address.');
+  const match = value.match(/^(\[[a-f0-9:]+\]|[a-z0-9.-]+):(\d{1,5})$/i);
+  if (!match || Number(match[2]) < 1 || Number(match[2]) > 65535) throw new Error('Invalid peer address.');
+  return { host: match[1], port: Number(match[2]) };
+}
 function isP2P(stream) {
   if (!stream || typeof stream !== 'object') return false;
   return Object.hasOwn(stream, 'infoHash') || Object.hasOwn(stream, 'magnet') || Object.hasOwn(stream, 'magnetUri') || /^magnet:/i.test(stream.url || '') || /^(bittorrent|torrent|p2p)$/i.test(stream.backend || stream.type || '') || stream.behaviorHints?.p2p === true || stream.behaviorHints?.torrent === true;
@@ -27,7 +34,7 @@ function tracker(value) {
 function normalizeTorrent(stream) {
   if (!isP2P(stream)) throw new Error('This is not a P2P source.');
   const hints = stream.behaviorHints || {};
-  let infoHash, displayName = '', trackers = [];
+  let infoHash, displayName = '', trackers = [], peerHints = [], retained = [], selectedIndex;
   const raw = stream.magnetUri || stream.magnet || (/^magnet:/i.test(stream.url || '') ? stream.url : '');
   if (raw) {
     if (typeof raw !== 'string' || raw.length > 32768) throw new Error('Invalid magnet URI.');
@@ -37,6 +44,17 @@ function normalizeTorrent(stream) {
     if (!xt) throw new Error('Magnet must include a BitTorrent v1 infoHash.');
     infoHash = hash(xt.slice(9)); displayName = (magnet.searchParams.get('dn') || '').slice(0, 500);
     trackers = magnet.searchParams.getAll('tr');
+    peerHints = magnet.searchParams.getAll('x.pe');
+    // Keep safe standard parameters rather than discarding a source's magnet.
+    // librqbit resolves v1 metadata from peers; it ignores HTTP xs/as/ws hints.
+    for (const [key, value] of magnet.searchParams) {
+      if (['xs', 'as', 'ws'].includes(key)) {
+        try { const url = new URL(value); if (['http:', 'https:'].includes(url.protocol) && !url.username && !url.password) retained.push([key, url.href]); } catch {}
+      } else if (key === 'xt' && /^urn:btmh:1220[a-f0-9]{64}$/i.test(value)) retained.push([key, value]);
+      else if (key === 'xl' && /^\d{1,15}$/.test(value)) retained.push([key, value]);
+      else if (key === 'kt' && value.length <= 500) retained.push([key, value]);
+      else if (key === 'so' && /^\d{1,5}$/.test(value)) { retained.push([key, value]); selectedIndex = Number(value); }
+    }
   }
   if (stream.infoHash !== undefined) {
     const supplied = hash(stream.infoHash);
@@ -44,35 +62,40 @@ function normalizeTorrent(stream) {
     infoHash = supplied;
   }
   if (!infoHash) throw new Error('The P2P source did not supply an infoHash or magnet URI.');
-  for (const list of [stream.trackers, stream.announce, hints.trackers]) {
-    if (list !== undefined && !Array.isArray(list)) throw new Error('Invalid tracker list.');
-    if (list) trackers.push(...list);
+  for (const list of [stream.trackers, stream.announce, hints.trackers, hints.announce]) {
+    if (list !== undefined && !Array.isArray(list) && typeof list !== 'string') throw new Error('Invalid tracker list.');
+    if (list) trackers.push(...(Array.isArray(list) ? list.flat(1) : [list]));
   }
   if (stream.sources !== undefined && !Array.isArray(stream.sources)) throw new Error('Invalid torrent source hints.');
+  if (hints.sources !== undefined && !Array.isArray(hints.sources)) throw new Error('Invalid torrent source hints.');
   const dhtNodes = [];
-  for (const source of stream.sources || []) {
+  for (const source of [...(stream.sources || []), ...(hints.sources || [])]) {
     if (typeof source !== 'string') throw new Error('Invalid torrent source hint.');
-    if (source.startsWith('tracker:')) trackers.push(source.slice(8));
-    else if (/^dht:/.test(source)) {
-      const match = source.match(/^dht:([a-z0-9.-]{1,253}):(\d{1,5})$/i);
-      if (!match || Number(match[2]) < 1 || Number(match[2]) > 65535) throw new Error('Invalid DHT node hint.');
-      dhtNodes.push({ host: match[1], port: Number(match[2]) });
+    if (/^tracker:/i.test(source)) trackers.push(source.slice(8));
+    else if (/^dht:/i.test(source)) {
+      dhtNodes.push(peerAddress(source.slice(4)));
     }
+    else if (/^peer:/i.test(source)) peerHints.push(source.slice(5));
+    else if (/^(udp|https?|wss?):/i.test(source)) trackers.push(source);
   }
   if (trackers.length > 64 || dhtNodes.length > 32) throw new Error('Too many torrent discovery hints.');
-  trackers = [...new Set(trackers.map(tracker))];
-  const fileIdx = stream.fileIdx;
+  trackers = [...new Set(trackers.map(value => tracker(value.replace(/^tracker:/i, ''))))];
+  const peerAddresses = [...new Set(peerHints.map(value => { const address = peerAddress(value); if (!net.isIP(address.host.replace(/^\[|\]$/g, ''))) throw new Error('Explicit peer hints must use an IP address.'); return `${address.host}:${address.port}`; }))];
+  if (peerAddresses.length > 64) throw new Error('Too many peer hints.');
+  const fileIdx = stream.fileIdx ?? selectedIndex;
   if (fileIdx !== undefined && fileIdx !== null && (!Number.isInteger(fileIdx) || fileIdx < 0 || fileIdx > 100000)) throw new Error('Invalid torrent file index.');
   const filename = stream.filename ?? hints.filename ?? '';
   if (typeof filename !== 'string' || filename.length > 2000 || /[\0\r\n]/.test(filename)) throw new Error('Invalid filename hint.');
   const videoSize = stream.videoSize ?? hints.videoSize;
   if (videoSize !== undefined && (!Number.isSafeInteger(videoSize) || videoSize < 0)) throw new Error('Invalid video size hint.');
-  // Reconstruct a minimal URI: xs/as/ws and arbitrary magnet parameters never
-  // become file reads, shell input or unaudited metadata/web-seed fetches.
+  // Preserve validated standard parameters. No parameter is shell input, and
+  // only BEP-9 peers are used for metadata in the native helper.
   const params = new URLSearchParams();
   if (displayName) params.set('dn', displayName);
   trackers.forEach(value => params.append('tr', value));
-  return { infoHash, magnet: `magnet:?xt=urn:btih:${infoHash}${params.size ? '&' + params : ''}`, trackers, dhtNodes, fileIdx, filename, videoSize, displayName };
+  peerAddresses.forEach(value => params.append('x.pe', value));
+  retained.forEach(([key, value]) => params.append(key, value));
+  return { infoHash, magnet: `magnet:?xt=urn:btih:${infoHash}${params.size ? '&' + params : ''}`, trackers, dhtNodes, peerAddresses, fileIdx, filename, videoSize, displayName };
 }
 function selectFile(files, source) {
   if (source.fileIdx !== undefined && source.fileIdx !== null) {

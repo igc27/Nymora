@@ -45,7 +45,7 @@ async function aggregate(descriptors, resource, type, id, extra = {}) {
     const addon = selected[i];
     if (result.status === 'rejected') errors.push(`${addon.manifest.name}: ${result.reason.message}`);
     else {
-      const values = result.value[resource === 'meta' ? 'meta' : resource === 'subtitles' ? 'subtitles' : 'streams'];
+      const values = result.value?.[resource === 'meta' ? 'meta' : resource === 'subtitles' ? 'subtitles' : 'streams'];
       if (resource === 'meta') { if (values && !Array.isArray(values)) items.push(values); }
       else if (Array.isArray(values)) values.slice(0, 1000).forEach(v => { if (v && typeof v === 'object') items.push({ ...v, addonName: addon.manifest.name }); });
       else errors.push(`${addon.manifest.name}: invalid ${resource} response.`);
