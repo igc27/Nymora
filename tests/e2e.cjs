@@ -9,7 +9,7 @@ async function main() {
   if (media.status !== 0) throw new Error('Test media generation failed.');
   const fixture = await startFixture();
   const profile = process.env.NYMORA_TEST_PROFILE || path.resolve(`.qa/e2e-${Date.now()}`);
-  fs.mkdirSync(profile, { recursive: true }); fs.mkdirSync('docs/screenshots', { recursive: true });
+  fs.mkdirSync(profile, { recursive: true }); fs.mkdirSync('.qa/development/screenshots', { recursive: true });
   const evidence = []; let app, page;
   const executablePath = process.env.NYMORA_TEST_RUNTIME || process.env.NYMORA_TEST_EXE || require('electron');
   async function launch() {
@@ -29,7 +29,7 @@ async function main() {
   }
   try {
     await launch(); passed('Fresh startup with no installed addons');
-    await page.screenshot({ path: 'docs/screenshots/home-empty.png' });
+    await page.screenshot({ path: '.qa/development/screenshots/home-empty.png' });
     await nav('Addons');
     await page.getByLabel('Addon manifest URL').fill(`${fixture.base}/invalid/manifest.json`);
     await page.getByRole('button', { name: 'Install addon', exact: true }).click();
@@ -43,7 +43,7 @@ async function main() {
     await page.getByRole('button', { name: 'Install addon', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Installed addons (2)' })).toBeVisible();
     await nav('Home'); await expect(page.getByRole('button', { name: 'Open Nymora Motion Study' })).toBeVisible(); await expect(page.getByRole('button', { name: 'Open Nymora Test Series' })).toBeVisible();
-    passed('Real movie and series addon catalogs load'); await page.screenshot({ path: 'docs/screenshots/catalogs.png' });
+    passed('Real movie and series addon catalogs load'); await page.screenshot({ path: '.qa/development/screenshots/catalogs.png' });
     await nav('Discover'); await expect(page.getByLabel('Catalog')).toBeVisible(); await page.getByLabel('Catalog').selectOption('1'); await expect(page.getByRole('button', { name: 'Open Nymora Test Series' })).toBeVisible();
     await page.getByRole('button', { name: 'Load more', exact: true }).click(); await expect(page.getByRole('button', { name: 'Load more', exact: true })).toBeHidden(); passed('Catalog switching, declared genre filter, skip pagination');
     await nav('Search'); await page.getByLabel('Search titles').fill('Nymora'); await page.getByRole('button', { name: 'Search', exact: true }).last().click();
@@ -65,7 +65,7 @@ async function main() {
     await page.getByLabel('Subtitle track').selectOption({ label: 'Arabic · العربية · original test · Nymora legal test addon' });
     await expect(page.getByTestId('subtitle-overlay')).toContainText('مرحباً بكم في نيمورا');
     expect(await page.getByTestId('subtitle-overlay').evaluate(n => getComputedStyle(n).unicodeBidi)).toBe('plaintext');
-    await page.screenshot({ path: 'docs/screenshots/arabic-playback.png' }); passed('Arabic Unicode subtitle rendered with automatic RTL');
+    await page.screenshot({ path: '.qa/development/screenshots/arabic-playback.png' }); passed('Arabic Unicode subtitle rendered with automatic RTL');
     await page.getByLabel('Player subtitle size').evaluate(node => { node.value = '42'; node.dispatchEvent(new Event('input', { bubbles: true })); node.dispatchEvent(new Event('change', { bubbles: true })); });
     await page.getByLabel('Subtitle delay').fill('1.5'); await page.getByLabel('Subtitle delay').press('Tab');
     expect(await page.getByTestId('subtitle-overlay').evaluate(n => getComputedStyle(n).fontSize)).toBe('42px'); passed('Subtitle size and delay settings');

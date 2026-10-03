@@ -1,7 +1,7 @@
 {
   "name": "nymora",
   "productName": "Nymora",
-  "version": "1.0.2",
+  "version": "1.0.3-dev",
   "description": "Independent local-first desktop media client for compatible addons",
   "author": "Mohammed Alanazi",
   "license": "MIT",
@@ -13,6 +13,8 @@
     "lint": "eslint src scripts tests",
     "test": "node --test tests/*.unit.test.cjs tests/unit.test.cjs",
     "test:e2e": "node tests/e2e.cjs",
+    "test:body": "node tests/body.e2e.cjs && node tests/chromium-redirect.e2e.cjs",
+    "demo:body": "node tests/body-fixture.cjs",
     "test:p2p": "node tests/p2p.integration.cjs && node tests/p2p.e2e.cjs",
     "test:p2p:native": "node tests/p2p.native.cjs",
     "test:p2p:public": "node tests/p2p.public.cjs",
@@ -39,9 +41,17 @@
     "productName": "Nymora",
     "copyright": "Copyright © 2026 Mohammed Alanazi; third-party notices apply",
     "afterPack": "scripts/after-pack.cjs",
-    "extraResources": [{ "from": "native/bin", "to": "torrent-engine", "filter": ["nymora-torrent-helper.exe"] }],
+    "extraResources": [
+      {
+        "from": "native/bin",
+        "to": "torrent-engine",
+        "filter": [
+          "nymora-torrent-helper.exe"
+        ]
+      }
+    ],
     "directories": {
-      "output": "release",
+      "output": "release/development",
       "buildResources": "assets"
     },
     "files": [

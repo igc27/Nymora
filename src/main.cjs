@@ -4,12 +4,15 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { Store } = require('./store.cjs');
 const addons = require('./addons.cjs');
-const { validURL, boundedText } = require('./network.cjs');
+const { validURL, boundedText, configureTransport } = require('./network.cjs');
+const { chromiumTransport } = require('./chromium-http.cjs');
 const { parseSubtitles } = require('./subtitles.cjs');
 const { createMediaProxy } = require('./media.cjs');
 const { TorrentEngine } = require('./torrent-engine.cjs');
 const { Playback } = require('./playback.cjs');
-const { isP2P } = require('./torrent-source.cjs');
+const { playableResults, classify } = require('./stream-classification.cjs');
+const { StreamQueries } = require('./stream-queries.cjs');
+const streamQueries = new StreamQueries();
 let store, media, playback, torrents, window, allowClose = false, quitting = false;
 if (process.env.NYMORA_DATA_DIR) app.setPath('userData', path.resolve(process.env.NYMORA_DATA_DIR));
 if (!app.requestSingleInstanceLock()) app.quit();
@@ -27,7 +30,11 @@ const operations = {
   catalog: query => addons.catalog(store.data.addons, query),
   search: ({ term }) => { if (typeof term !== 'string' || term.length > 500) throw new Error('Search text is too long.'); return addons.search(store.data.addons, term); },
   meta: ({ type, id }) => addons.aggregate(store.data.addons, 'meta', type, id),
-  async streams({ type, id }) { const result = await addons.aggregate(store.data.addons, 'stream', type, id); result.items = result.items.map(stream => ({ ...stream, nymoraP2P: isP2P(stream) })); return result; },
+  async streams({ type, id }) { return playableResults(await addons.aggregate(store.data.addons, 'stream', type, id)); },
+  streamsStart: query => streamQueries.start(store.data.addons, query),
+  streamsState: ({ key }) => streamQueries.read(key),
+  streamsCancel: ({ key }) => streamQueries.cancel(key),
+  copyAddonDiagnostics: ({ key }) => { const value = streamQueries.diagnostics(key); clipboard.writeText(JSON.stringify(value, null, 2)); return value; },
   subtitles: ({ type, id, extra }) => addons.aggregate(store.data.addons, 'subtitles', type, id, extra || {}),
   subtitleFile: async ({ url }) => parseSubtitles(await boundedText(validURL(url), 4 * 1024 * 1024)),
   async localSubtitle() {
@@ -37,7 +44,7 @@ const operations = {
     if (fs.statSync(file).size > 4 * 1024 * 1024) throw new Error('Subtitle file is too large.');
     return { name: path.basename(file), cues: parseSubtitles(fs.readFileSync(file, 'utf8')) };
   },
-  source: stream => playback.source(stream),
+  source: stream => { if (!['http', 'p2p'].includes(classify(stream))) throw new Error('This addon entry is informational or unsupported. Choose a playable source.'); return playback.source(stream); },
   stop: () => playback.stop(),
   playbackStatus: () => playback.status(),
   copyP2PDiagnostics: () => { const value = torrents.diagnostics(); clipboard.writeText(JSON.stringify(value, null, 2)); return value; },
@@ -74,6 +81,8 @@ const operations = {
   async notices() { return fs.readFileSync(path.join(app.getAppPath(), 'THIRD_PARTY_NOTICES.md'), 'utf8'); }
 };
 app.whenReady().then(async () => {
+  const addonSession = session.fromPartition('nymora-addon-http', { cache: false });
+  configureTransport(chromiumTransport(addonSession));
   store = new Store(app.getPath('userData')); media = await createMediaProxy();
   torrents = new TorrentEngine({ cacheDirectory: path.join(app.getPath('userData'), 'torrent-cache-v1'), helperPath: app.isPackaged ? path.join(process.resourcesPath, 'torrent-engine', 'nymora-torrent-helper.exe') : undefined, localOnly: process.env.NYMORA_P2P_TEST_MODE === 'local-only' });
   await torrents.initialize().catch(() => {});
@@ -92,6 +101,7 @@ app.whenReady().then(async () => {
   window = new BrowserWindow({ title: 'Nymora', width: 1320, height: 860, minWidth: 940, minHeight: 640, backgroundColor: '#0c0e16', icon: path.join(app.getAppPath(), 'assets/icon.ico'), autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true } });
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.on('close', event => {
+    streamQueries.cancelAll();
     if (allowClose) return;
     event.preventDefault();
     window.webContents.send('prepare-close');

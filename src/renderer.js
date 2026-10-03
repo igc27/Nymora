@@ -1,7 +1,8 @@
 // Hls is loaded from the pinned local hls.js distribution by index.html.
 const root = document.getElementById('app');
 const call = (op, value) => window.nymora.call(op, value);
-let state, page = 'Home', generation = 0, currentPlayer = null, preparingSource = false;
+let state, page = 'Home', generation = 0, currentPlayer = null, preparingSource = false, activeStreamKey = null;
+function cancelStreamRequest() { const key = activeStreamKey; activeStreamKey = null; if (key) call('streamsCancel', { key }).catch(() => {}); }
 const navItems = ['Home', 'Discover', 'Search', 'Library', 'Addons', 'Settings'];
 function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
@@ -37,6 +38,7 @@ function shell() {
   return content;
 }
 async function navigate(target) {
+  cancelStreamRequest();
   if (currentPlayer) await currentPlayer.close();
   page = target; const token = ++generation; const content = shell();
   content.append(heading(target, target === 'Home' ? 'A quiet place for everything you want to watch.' : undefined));
@@ -174,9 +176,10 @@ async function showSettings(content) {
 }
 function languageName(code) { return ({ eng: 'English', en: 'English', ara: 'Arabic · العربية', ar: 'Arabic · العربية', spa: 'Spanish', fra: 'French', deu: 'German', jpn: 'Japanese', por: 'Portuguese', rus: 'Russian', hin: 'Hindi', zho: 'Chinese' })[code] || code; }
 async function openDetails(initial, resume) {
+  cancelStreamRequest();
   const token = ++generation; page = 'Details'; const content = shell();
   // Start the movie stream query immediately, independently of metadata latency.
-  let firstMovieSources = initial.type === 'movie' ? call('streams', { type: initial.type, id: initial.id }).then(value => ({ value }), error => ({ error })) : null;
+  let firstMovieSources = initial.type === 'movie' ? call('streamsStart', { type: initial.type, id: initial.id }).then(value => ({ value }), error => ({ error })) : null;
   content.append(button('← Back to Home', () => navigate('Home'), 'button subtle'), el('p', { className: 'muted' }, 'Loading details…'));
   let meta = initial, problems = [];
   const metadataRequest = call('meta', { type: initial.type, id: initial.id }).then(value => ({ value }), error => ({ error }));
@@ -202,30 +205,52 @@ async function openDetails(initial, resume) {
   const sources = el('section', { className: 'sources' });
   let sourceGeneration = 0;
   const loadStreams = async video => {
+    cancelStreamRequest();
     const requestId = ++sourceGeneration;
-    sources.replaceChildren(el('h2', {}, video.name ? `Sources · ${video.name}` : 'Watch / Sources'), el('p', { className: 'muted' }, 'Querying installed stream addons…'));
+    const loading = el('p', { className: 'muted', role: 'status' }, 'Querying installed stream addons…');
+    const cardsContainer = el('div', { className: 'source-cards' });
+    const notices = el('div', { className: 'source-notices' });
+    sources.replaceChildren(el('h2', {}, video.name ? `Sources · ${video.name}` : 'Watch / Sources'), loading);
+    const progress = state.progress[`${meta.type}:${video.id}`];
+    let resumePosition = progress && !progress.watched ? progress.position : 0;
+    if (resumePosition > 0) {
+      const resumeToggle = el('input', { type: 'checkbox', checked: true, 'aria-label': 'Resume saved progress', onchange: e => { resumePosition = e.target.checked ? progress.position : 0; } });
+      sources.append(el('label', { className: 'resume-choice' }, resumeToggle, `Resume from ${clock(progress.position)}`));
+    }
+    sources.append(cardsContainer, notices);
+    let key;
+    const current = () => token === generation && requestId === sourceGeneration;
     try {
       const pending = firstMovieSources; firstMovieSources = null;
       const initialResponse = pending && await pending;
       if (initialResponse?.error) throw initialResponse.error;
-      const response = initialResponse?.value || await call('streams', { type: meta.type, id: video.id });
-      if (token !== generation || requestId !== sourceGeneration) return;
-      sources.lastChild.remove();
-      const progress = state.progress[`${meta.type}:${video.id}`];
-      let resumePosition = progress && !progress.watched ? progress.position : 0;
-      if (resumePosition > 0) {
-        const resumeToggle = el('input', { type: 'checkbox', checked: true, 'aria-label': 'Resume saved progress', onchange: e => { resumePosition = e.target.checked ? progress.position : 0; } });
-        sources.append(el('label', { className: 'resume-choice' }, resumeToggle, `Resume from ${clock(progress.position)}`));
+      key = initialResponse?.value || await call('streamsStart', { type: meta.type, id: video.id });
+      if (!current()) { await call('streamsCancel', { key }); return; }
+      activeStreamKey = key;
+      let rendered = 0, revision = -1;
+      for (;;) {
+        const response = await call('streamsState', { key });
+        if (!current() || activeStreamKey !== key) return;
+        if (response.revision !== revision) {
+          revision = response.revision;
+          for (const stream of response.items.slice(rendered)) {
+            const hints = stream.behaviorHints || {};
+            const bytes = stream.videoSize ?? hints.videoSize;
+            cardsContainer.append(button(el('div', {}, el('span', { className: 'source-label' }, stream.addonName), el('h3', {}, stream.name || stream.title || 'Stream'), stream.name && stream.title && el('p', {}, stream.title), el('p', { className: 'muted' }, [stream.description, stream.filename || hints.filename, bytes && `${Math.round(bytes / 1048576)} MB`, stream.language, stream.quality, Number.isInteger(stream.seeders) && stream.seeders >= 0 ? `${stream.seeders} seeders (addon-reported)` : ''].filter(Boolean).join(' · ')), stream.nymoraP2P && el('p', { className: 'p2p-label' }, 'BitTorrent / P2P · confirmation required')), () => startPlayer(meta, video, stream, resumePosition), 'source'));
+          }
+          rendered = response.items.length;
+          notices.replaceChildren(...[...response.notices, ...response.errors].map(addonWarning));
+          if (response.errors.length) notices.append(button('Copy Addon Diagnostics', () => call('copyAddonDiagnostics', { key }).then(() => toast('Redacted addon diagnostics copied.')), 'button subtle small'));
+          loading.textContent = response.done ? '' : `Waiting for ${response.pending} addon${response.pending === 1 ? '' : 's'}…`;
+        }
+        if (response.done) {
+          loading.remove();
+          if (!rendered) cardsContainer.append(empty('No streams available', 'No playable sources were returned. Install a stream addon or retry.', button('Retry sources', () => loadStreams(video))));
+          return;
+        }
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
-      if (!response.items.length) sources.append(empty('No streams available', 'Install an addon that provides streams for this title, or retry the available addons.', button('Retry sources', () => loadStreams(video))));
-      for (const stream of response.items) {
-        const hints = stream.behaviorHints || {};
-        const available = !!stream.url || stream.nymoraP2P;
-        const bytes = stream.videoSize ?? hints.videoSize;
-        sources.append(button(el('div', {}, el('span', { className: 'source-label' }, stream.addonName), el('h3', {}, stream.name || stream.title || 'Stream'), stream.name && stream.title && el('p', {}, stream.title), el('p', { className: 'muted' }, [stream.description, stream.filename || hints.filename, bytes && `${Math.round(bytes / 1048576)} MB`, stream.language, stream.quality, Number.isInteger(stream.seeders) && stream.seeders >= 0 ? `${stream.seeders} seeders (addon-reported)` : ''].filter(Boolean).join(' · ')), stream.nymoraP2P && el('p', { className: 'p2p-label' }, 'BitTorrent / P2P · confirmation required'), !available && el('p', { className: 'muted' }, 'External or unsupported source')), () => startPlayer(meta, video, stream, resumePosition), 'source'));
-      }
-      response.errors.forEach(e => sources.append(addonWarning(e)));
-    } catch (e) { if (requestId === sourceGeneration) { sources.lastChild.remove(); sources.append(errorBlock(e.message, () => loadStreams(video))); } }
+    } catch (e) { if (current() && (!key || activeStreamKey === key)) { loading.remove(); notices.append(addonWarning(e.message), button('Retry sources', () => loadStreams(video), 'button subtle small')); } }
   };
   if (meta.type === 'series') {
     const videos = (meta.videos || []).filter(v => typeof v.id === 'string');
@@ -270,6 +295,7 @@ async function prepareSource(stream) {
 async function startPlayer(meta, episode, stream, start) {
   const source = await prepareSource(stream);
   if (source.cancelled) return;
+  cancelStreamRequest();
   if (source.p2p) stream = { ...stream, behaviorHints: { ...stream.behaviorHints, filename: source.filename, videoSize: source.videoSize } };
   const previousOverflow = document.body.style.overflow;
   document.body.style.overflow = 'hidden';

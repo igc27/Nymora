@@ -6321,7 +6321,9 @@ WebTorrent and the vendored tracker are development-only local fixture dependenc
 
 # Corresponding source for the WebRTC dependency
 
-WebTorrent's tracker client includes `webrtc-polyfill` and the unmodified official N-API binary from `node-datachannel` 0.32.3. It is loaded only after P2P confirmation. TCP torrent playback is the verified transport; WebRTC interoperability is not independently certified by Nymora's tests.
+This document preserves historical native WebTorrent provenance for the 1.0.1/1.1.0 releases and development-only fixtures. Nymora 1.0.2 does not ship those modules as its torrent backend. Its production engine is pinned librqbit 9.0.1, with full native dependency notices under third_party/rqbit/ and the original wrapper source under native/torrent-helper/.
+
+The historical WebTorrent tracker client includes `webrtc-polyfill` and the unmodified official N-API binary from `node-datachannel` 0.32.3. It was loaded only after P2P confirmation. TCP torrent playback was the verified transport; WebRTC interoperability was not independently certified by Nymora's tests.
 
 The MPL-covered files remain under MPL-2.0, with their original notices; Nymora's separate original files remain MIT. Recipients may obtain the corresponding unmodified source, including native build files, without charge from these exact public revisions:
 

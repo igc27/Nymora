@@ -17,13 +17,13 @@ function validateManifest(manifest) {
   if (manifest.catalogs !== undefined && (!Array.isArray(manifest.catalogs) || manifest.catalogs.some(c => !c || typeof c.type !== 'string' || typeof c.id !== 'string' || (c.extra !== undefined && (!Array.isArray(c.extra) || c.extra.some(e => !e || typeof e.name !== 'string')))))) throw new Error('Invalid addon catalogs.');
   return manifest;
 }
-function client(descriptor) {
+function client(descriptor, options = {}) {
   const url = validURL(descriptor.transportUrl, true);
   return new AddonClient(validateManifest(descriptor.manifest), {
     url,
     get(args, callback) {
       const resourceURL = url.slice(0, -'/manifest.json'.length) + stringifyRequest(args);
-      json(resourceURL).then(value => callback(null, value), callback);
+      json(resourceURL, options).then(value => callback(null, value), callback);
     }
   });
 }
@@ -37,20 +37,31 @@ function catalogs(descriptors) {
 function extraDefinitions(catalog) {
   return catalog.extra || [...(catalog.extraSupported || [])].map(name => ({ name, isRequired: (catalog.extraRequired || []).includes(name) }));
 }
-async function aggregate(descriptors, resource, type, id, extra = {}) {
-  const selected = descriptors.map(client).filter(a => a.isSupported(resource, type, id));
-  const settled = await Promise.allSettled(selected.map(a => a.get(resource, type, id, extra)));
+async function aggregate(descriptors, resource, type, id, extra = {}, options = {}) {
   const items = [], errors = [];
-  settled.forEach((result, i) => {
-    const addon = selected[i];
-    if (result.status === 'rejected') errors.push(`${addon.manifest.name}: ${result.reason.message}`);
-    else {
-      const values = result.value?.[resource === 'meta' ? 'meta' : resource === 'subtitles' ? 'subtitles' : 'streams'];
+  const selected = [];
+  for (const descriptor of descriptors) {
+    try { const addon = client(descriptor); if (addon.isSupported(resource, type, id)) selected.push(descriptor); }
+    catch { errors.push('An installed addon has an invalid manifest. Reinstall it.'); }
+  }
+  const controllers = selected.map(() => new AbortController());
+  options.onCancelReady?.(() => controllers.forEach(c => c.abort()));
+  let pending = selected.length;
+  const update = () => options.onUpdate?.({ items: [...items], errors: [...errors], pending });
+  update();
+  await Promise.allSettled(selected.map(async (descriptor, index) => {
+    const name = descriptor.manifest.name;
+    try {
+      const addon = client(descriptor, { ...options.network, signal: controllers[index].signal, onDiagnostic: value => options.onDiagnostic?.({ addonIndex: index, ...value }) });
+      const result = await addon.get(resource, type, id, extra);
+      const values = result?.[resource === 'meta' ? 'meta' : resource === 'subtitles' ? 'subtitles' : 'streams'];
       if (resource === 'meta') { if (values && !Array.isArray(values)) items.push(values); }
-      else if (Array.isArray(values)) values.slice(0, 1000).forEach(v => { if (v && typeof v === 'object') items.push({ ...v, addonName: addon.manifest.name }); });
-      else errors.push(`${addon.manifest.name}: invalid ${resource} response.`);
-    }
-  });
+      else if (Array.isArray(values)) values.slice(0, 1000).forEach(v => { if (v && typeof v === 'object') items.push({ ...v, addonName: name }); });
+      else errors.push(`${name}: invalid ${resource} response.`);
+    } catch (error) {
+      if (!controllers[index].signal.aborted) errors.push(error.code === 'HEADER_TIMEOUT' ? `${name} did not respond.` : `${name}: ${error.message}`);
+    } finally { pending--; update(); }
+  }));
   return { items, errors };
 }
 async function catalog(descriptors, query) {

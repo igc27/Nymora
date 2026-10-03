@@ -90,7 +90,7 @@ async function main() {
     await page.getByRole('button', { name: 'Local subtitle', exact: true }).click(); await expect(page.getByTestId('subtitle-overlay')).toContainText('Original local subtitle');
     await page.getByLabel('Subtitle track').selectOption({ label: 'Arabic · العربية · original test · Nymora legal subtitle addon' }); await expect(page.getByTestId('subtitle-overlay')).toContainText('هذه ترجمة عربية أصلية');
     passed('P2P subtitle delay, Off, local UTF-8 subtitles and switching back to addon tracks');
-    fs.mkdirSync('docs/screenshots', { recursive: true }); await page.screenshot({ path: 'docs/screenshots/p2p-playback.png' });
+    fs.mkdirSync('.qa/development/screenshots', { recursive: true }); await page.screenshot({ path: '.qa/development/screenshots/p2p-playback.png' });
     await expect(page.getByTestId('p2p-stats')).toContainText('peers');
     await expect(page.evaluate(() => window.nymora.call('clearTorrentCache'))).rejects.toThrow(/Stop/); passed('Cache cannot be cleared while pieces are serving playback');
     const previousURL = await page.locator('video').evaluate(v => v.src);

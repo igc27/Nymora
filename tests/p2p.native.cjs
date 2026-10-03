@@ -2,6 +2,7 @@
 const { _electron, expect } = require('@playwright/test');
 const path = require('node:path');
 const fs = require('node:fs');
+fs.mkdirSync('.qa/development', { recursive: true });
 const { startTorrentFixture } = require('./torrent-fixture.cjs');
 const { startPublicFixture } = require('./public-torrent-fixture.cjs');
 (async () => {
@@ -34,7 +35,7 @@ const { startPublicFixture } = require('./public-torrent-fixture.cjs');
     expect((await page.evaluate(() => window.nymora.call('playbackStatus'))).startedSessions).toBe(1);
     const evidence = { result: 'PASS', version: require('../package.json').version, executable: process.env.NYMORA_TEST_EXE ? path.basename(process.env.NYMORA_TEST_EXE) : 'development Electron', nativeCancelStartedSessions: 0, nativeAcceptStartedSessions: 1, decoded, legalLoopbackMediaOnly: !publicTest, publicInternet: publicTest, timestamp: new Date().toISOString() };
     fs.writeFileSync(path.join(profile, 'native-evidence.json'), JSON.stringify(evidence, null, 2));
-    if(publicTest) fs.writeFileSync('docs/public-native-evidence-1.0.2.json',JSON.stringify(evidence,null,2));
+    if(publicTest) fs.writeFileSync('.qa/development/public-native-evidence.json',JSON.stringify(evidence,null,2));
     console.log('PASS actual native acceptance starts legal P2P decoded playback', decoded);
   } finally { await app.close(); await fixture.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
