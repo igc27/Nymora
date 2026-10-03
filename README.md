@@ -2,17 +2,17 @@
 
 # NYMORA
 
-**Version 1.0.2 Alpha · Windows x64 · Independent open-source media client**
+**Version 1.1.1 Working Baseline · Windows x64 · Independent open-source media client**
 
 Bring your own compatible addons. Browse their catalogs, search for a title, choose a movie or episode and play a supported stream inside the desktop application. Your library, addons and viewing progress stay on your computer.
 
 Nymora is an independent project, not affiliated with, sponsored by or endorsed by Stremio. It reuses selected MIT-licensed Stremio addon-client components and follows the HTTP addon protocol. It does not provide or host movies or television content. Third-party addons are independently maintained services.
 
-**Release status:** [1.0.2 Alpha](https://github.com/igc27/Nymora/releases/tag/v1.0.2) bundles librqbit 9.0.1 and passes the complete installed-client public internet P2P path. See [1.0.2 verification](docs/P2P_QA-1.0.2.md). Previously published releases remain unchanged.
+**Release status:** [1.1.1 Working Baseline](https://github.com/igc27/Nymora/releases/tag/v1.1.1) preserves the manually verified addon → episode → P2P consent → peers → playback architecture before UI redesign. See [baseline verification](docs/WORKING_BASELINE-1.1.1.md). Previously published releases remain unchanged.
 
 ## Windows installation
 
-Use the [1.0.2 Alpha release](https://github.com/igc27/Nymora/releases/tag/v1.0.2). Download `Nymora-1.0.2-Windows-x64-Setup.exe`, compare its SHA-256 value with `SHA256SUMS.txt`, and run it. The installer supports a per-user installation, Start Menu and optional desktop shortcuts, and uninstall through Windows Settings. Windows 10/11 x64 is the target; Windows 11 was tested. Releases are currently unsigned. Other versions remain on the [GitHub Releases page](https://github.com/igc27/Nymora/releases).
+Use the [1.1.1 Working Baseline release](https://github.com/igc27/Nymora/releases/tag/v1.1.1). Download `Nymora-1.1.1-Windows-x64-Setup.exe`, compare its SHA-256 value with `SHA256SUMS.txt`, and run it. The installer supports a per-user installation, Start Menu and optional desktop shortcuts, and uninstall through Windows Settings. Windows 10/11 x64 is the target; Windows 11 was tested. Releases are currently unsigned. Other versions remain on the [GitHub Releases page](https://github.com/igc27/Nymora/releases).
 
 An optional versioned Windows x64 Portable ZIP contains the same desktop client. Extract it before launching `Nymora.exe`. Portable mode uses the ordinary local data folder unless `NYMORA_DATA_DIR` is explicitly set.
 
