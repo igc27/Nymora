@@ -59,3 +59,16 @@ Known limits: unsigned Alpha builds; Windows 10 hardware not separately tested; 
 ## Regression assertion correction
 
 The first tagged release job stopped before asset upload at a synthetic-player assertion: the video reached 60 seconds while the last recorded HTTP Range start was 0. A most-recent request offset does not establish whether Chromium already has the seek target buffered or has an overlapping read in flight. The player regression now records buffered intervals and requires additional decoded frames after the requested seek. The independent native integration test still forces a 206 request at 80% of the selected file, compares its bytes with the original media and requires incomplete download. The installed public-torrent path and production engine remain unchanged. Publication remains gated on successful complete packaged and installed public-peer tests.
+
+## Published installer downloaded and verified on Windows 11
+
+The actual public GitHub download was verified against SHA256SUMS.txt and GitHub's asset digest, installed with exit code 0, and tested again on this machine. The existing default addon/viewing profile remained unchanged. [Published-binary evidence](published-p2p-evidence-1.0.2.json) records the exact Setup, app.asar and helper hashes. [Published native-dialog evidence](published-native-evidence-1.0.2.json) independently records actual Cancel=zero sessions and actual acceptance=one session plus decoded public video.
+
+The installed public download obtained Sintel metadata in **1,122 ms**, with **12 live peers** observed during playback; decoded 1024×436 video and a seek to **180.211 seconds** passed, followed by English/Arabic/Off/local subtitles, shutdown, saved progress and reopening at **180.850 seconds** after fresh consent. One unreachable peer attempt produced a nonfatal routing cause code; engineError remained null and other peers supplied the metadata and video. Diagnostics preserve that observation rather than claiming every peer was reachable.
+
+* Published Setup SHA-256: `33a3a8cb6a858d7f911bc83502911da7545fe3c184e88e1a1515cf2c08d24a2f`
+* Published Portable ZIP SHA-256: `b4ab04f0bd9baa0d10e2086187f7f3d9c1a9bd56f4562f41464e7153c2a64c4e`
+* Installed public app.asar SHA-256: `69cea791e20120ba288886944e8d3fa99d07877d26a3bad6186946adb0de98c9`
+* Installed public helper SHA-256: `3c531808872087c512f9d0263a5e5c162c40948a725fa73a1945105a8e92fd8e`
+
+The release tag remains `c64e1b29e19a33d11d384fee315bf045a7ba13f3`. Its successful [release job](https://github.com/igc27/Nymora/actions/runs/37096594622) installed the Setup and passed the full public peer path before attaching assets. The first attempt stopped at the assertion documented above and uploaded no binaries; the retry passed every original gate. The corrected player assertion separately passed [main CI](https://github.com/igc27/Nymora/actions/runs/37097527886). Later main commits update documentation, QA and published-binary evidence; production engine code is unchanged from the release tag. Historical release assets were not replaced.
