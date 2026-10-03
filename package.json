@@ -1,7 +1,7 @@
 {
   "name": "nymora",
   "productName": "Nymora",
-  "version": "1.1.1",
+  "version": "1.2.0-dev",
   "description": "Independent local-first desktop media client for compatible addons",
   "author": "Mohammed Alanazi",
   "license": "MIT",
@@ -13,6 +13,7 @@
     "lint": "eslint src scripts tests",
     "test": "node --test tests/*.unit.test.cjs tests/unit.test.cjs",
     "test:e2e": "node tests/e2e.cjs",
+    "test:ui": "node tests/ui.e2e.cjs",
     "test:body": "node tests/body.e2e.cjs && node tests/chromium-redirect.e2e.cjs",
     "demo:body": "node tests/body-fixture.cjs",
     "test:p2p": "node tests/p2p.integration.cjs && node tests/p2p.e2e.cjs",

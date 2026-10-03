@@ -1,7 +1,7 @@
 'use strict';
 const fs = require('node:fs');
 const path = require('node:path');
-const defaults = () => ({ version: 1, addons: [], library: [], progress: {}, settings: { subtitleLanguage: 'eng', subtitleSize: 32, subtitleDelay: 0, volume: 0.8, torrentCacheMB: 2048 } });
+const defaults = () => ({ version: 1, addons: [], library: [], progress: {}, p2pNoticeAccepted: false, settings: { subtitleLanguage: 'eng', subtitleSize: 32, subtitleDelay: 0, volume: 0.8, torrentCacheMB: 2048, blurEpisodeThumbnails: false, homeCatalogOrder: [], hiddenCatalogs: [] } });
 class Store {
   constructor(directory) {
     this.file = path.join(directory, 'nymora.json');

@@ -10,10 +10,11 @@ const { parseSubtitles } = require('./subtitles.cjs');
 const { createMediaProxy } = require('./media.cjs');
 const { TorrentEngine } = require('./torrent-engine.cjs');
 const { Playback } = require('./playback.cjs');
+const { P2PConsent } = require('./consent.cjs');
 const { playableResults, classify } = require('./stream-classification.cjs');
 const { StreamQueries } = require('./stream-queries.cjs');
 const streamQueries = new StreamQueries();
-let store, media, playback, torrents, window, allowClose = false, quitting = false;
+let store, media, playback, torrents, consent, window, allowClose = false, quitting = false, requestedFullscreen = false;
 if (process.env.NYMORA_DATA_DIR) app.setPath('userData', path.resolve(process.env.NYMORA_DATA_DIR));
 if (!app.requestSingleInstanceLock()) app.quit();
 app.on('second-instance', () => { if (window) { if (window.isMinimized()) window.restore(); window.focus(); } });
@@ -45,7 +46,9 @@ const operations = {
     return { name: path.basename(file), cues: parseSubtitles(fs.readFileSync(file, 'utf8')) };
   },
   source: stream => { if (!['http', 'p2p'].includes(classify(stream))) throw new Error('This addon entry is informational or unsupported. Choose a playable source.'); return playback.source(stream); },
-  stop: () => playback.stop(),
+  stop: () => { consent.cancel(); return playback.stop(); },
+  p2pNoticeAnswer: answer => consent.answer(answer),
+  resetP2PNotice: () => { consent.reset(); return snapshot(); },
   playbackStatus: () => playback.status(),
   copyP2PDiagnostics: () => { const value = torrents.diagnostics(); clipboard.writeText(JSON.stringify(value, null, 2)); return value; },
   cacheSummary: () => ({ bytes: torrents.cache.size(), limitMB: store.data.settings.torrentCacheMB, active: !!torrents.client }),
@@ -66,6 +69,13 @@ const operations = {
   },
   settings(value) {
     const next = {};
+    if (typeof value.blurEpisodeThumbnails === 'boolean') next.blurEpisodeThumbnails = value.blurEpisodeThumbnails;
+    for (const key of ['homeCatalogOrder', 'hiddenCatalogs']) {
+      if (value[key] !== undefined) {
+        if (!Array.isArray(value[key]) || value[key].length > 2000 || value[key].some(v => typeof v !== 'string' || v.length > 1000)) throw new Error('Invalid catalog layout.');
+        next[key] = [...new Set(value[key])];
+      }
+    }
     if (typeof value.subtitleLanguage === 'string' && value.subtitleLanguage.length < 30) next.subtitleLanguage = value.subtitleLanguage;
     for (const [key, min, max] of [['subtitleSize', 16, 72], ['subtitleDelay', -120, 120], ['volume', 0, 1]]) if (Number.isFinite(value[key])) next[key] = Math.max(min, Math.min(max, value[key]));
     if (value.torrentCacheMB !== undefined) {
@@ -77,7 +87,7 @@ const operations = {
     store.data.settings = { ...store.data.settings, ...next }; store.save(); return snapshot();
   },
   async external({ url }) { await shell.openExternal(validURL(url)); },
-  fullscreen: ({ enabled } = {}) => { window.setFullScreen(typeof enabled === 'boolean' ? enabled : !window.isFullScreen()); return window.isFullScreen(); },
+  fullscreen: ({ enabled } = {}) => { requestedFullscreen = typeof enabled === 'boolean' ? enabled : !requestedFullscreen; window.setFullScreen(requestedFullscreen); return requestedFullscreen; },
   async notices() { return fs.readFileSync(path.join(app.getAppPath(), 'THIRD_PARTY_NOTICES.md'), 'utf8'); }
 };
 app.whenReady().then(async () => {
@@ -86,7 +96,8 @@ app.whenReady().then(async () => {
   store = new Store(app.getPath('userData')); media = await createMediaProxy();
   torrents = new TorrentEngine({ cacheDirectory: path.join(app.getPath('userData'), 'torrent-cache-v1'), helperPath: app.isPackaged ? path.join(process.resourcesPath, 'torrent-engine', 'nymora-torrent-helper.exe') : undefined, localOnly: process.env.NYMORA_P2P_TEST_MODE === 'local-only' });
   await torrents.initialize().catch(() => {});
-  playback = new Playback({ media, torrents, confirm: options => dialog.showMessageBox(window, options), cacheLimit: () => store.data.settings.torrentCacheMB * 1024 ** 2 });
+  consent = new P2PConsent({ store, show: notice => window.webContents.send('p2p-notice', notice), dismiss: nonce => window.webContents.send('p2p-notice-dismiss', nonce) });
+  playback = new Playback({ media, torrents, confirm: options => consent.confirm(options), cacheLimit: () => store.data.settings.torrentCacheMB * 1024 ** 2 });
   session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
   session.defaultSession.setPermissionCheckHandler(() => false);
   // Block remote attempts to navigate to local files or execute special protocols.
@@ -100,7 +111,17 @@ app.whenReady().then(async () => {
   });
   window = new BrowserWindow({ title: 'Nymora', width: 1320, height: 860, minWidth: 940, minHeight: 640, backgroundColor: '#0c0e16', icon: path.join(app.getAppPath(), 'assets/icon.ico'), autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true } });
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  window.webContents.on('before-input-event', (_event, input) => {
+    if (input.type === 'keyDown' && input.key === 'Escape' && (requestedFullscreen || window.isFullScreen())) { requestedFullscreen = false; window.setFullScreen(false); }
+  });
+  window.on('enter-full-screen', () => {
+    window.webContents.send('fullscreen-changed', true);
+    // Windows may defer entering fullscreen. Honor Escape received during it.
+    if (!requestedFullscreen) setImmediate(() => { if (!window.isDestroyed()) window.setFullScreen(false); });
+  });
+  window.on('leave-full-screen', () => { requestedFullscreen = false; window.webContents.send('fullscreen-changed', false); });
   window.on('close', event => {
+    consent.cancel();
     streamQueries.cancelAll();
     if (allowClose) return;
     event.preventDefault();
@@ -115,12 +136,13 @@ app.whenReady().then(async () => {
       return { value: await operations[operation](payload) };
     } catch (error) { return { error: error.message || 'Something went wrong. Please retry.' }; }
   });
-  window.webContents.on('render-process-gone', () => { dialog.showMessageBox({ type: 'error', title: 'Nymora', message: 'The interface stopped unexpectedly. Restart Nymora. Your saved data remains in the local data folder.' }); });
+  window.webContents.on('render-process-gone', () => { consent.cancel(); playback.stop().catch(() => {}); dialog.showMessageBox({ type: 'error', title: 'Nymora', message: 'The interface stopped unexpectedly. Restart Nymora. Your saved data remains in the local data folder.' }); });
   await window.loadFile(path.join(app.getAppPath(), 'dist/index.html'));
 }).catch(error => { dialog.showErrorBox('Nymora startup failed', error.message); app.quit(); });
 app.on('window-all-closed', () => app.quit());
 app.on('before-quit', event => {
   if (quitting || !playback) return;
   event.preventDefault(); quitting = true;
+  consent.cancel();
   playback.close().finally(() => app.quit());
 });

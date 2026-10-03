@@ -60,6 +60,7 @@ async function main() {
     expect(await page.locator('video').evaluate(v => v.volume)).toBeCloseTo(0.3); await page.getByRole('button', { name: 'Mute', exact: true }).click(); expect(await page.locator('video').evaluate(v => v.muted)).toBe(true); await page.getByRole('button', { name: 'Unmute', exact: true }).click(); passed('Volume and mute controls');
     await page.getByRole('button', { name: 'Fullscreen', exact: true }).click(); await expect.poll(() => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isFullScreen())).toBe(true); passed('Native fullscreen');
     await page.getByRole('button', { name: 'Fullscreen', exact: true }).click(); await expect.poll(() => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isFullScreen())).toBe(false);
+    await page.getByRole('button', { name: 'Subtitles', exact: true }).click();
     await page.getByLabel('Subtitle track').selectOption({ label: 'English · original test · Nymora legal test addon' });
     await expect(page.getByTestId('subtitle-overlay')).toContainText('Welcome to Nymora'); passed('English addon subtitle rendered');
     await page.getByLabel('Subtitle track').selectOption({ label: 'Arabic · العربية · original test · Nymora legal test addon' });

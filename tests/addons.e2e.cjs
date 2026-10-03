@@ -46,8 +46,9 @@ async function main() {
     expect(await page.locator('button.source').allTextContents()).toHaveLength(7);
     const rejected = await page.evaluate(() => window.nymora.call('source', { name: 'Removal Reasons', url: 'http://127.0.0.1/placeholder.mp4' }).then(() => false, () => true)); expect(rejected).toBe(true);
     pass('Informational, placeholder, external and invalid P2P entries cannot enter player');
-    await app.evaluate(({ dialog }) => { const original = dialog.showMessageBox.bind(dialog); dialog.showMessageBox = async (..._args) => { dialog.showMessageBox = original; return { response: 0 }; }; });
     await page.getByRole('button', { name: /five playable 5/ }).click();
+    await expect(page.getByRole('dialog', { name: 'P2P Streaming Notice' })).toBeVisible();
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'Preparing playback' })).toBeHidden();
     expect(pending.size).toBe(1); pass('Cancelling P2P consent preserves outstanding addon discovery');
     await expect(page.locator('.source-notices')).toContainText('slow test addon did not respond.', { timeout: 25000 });

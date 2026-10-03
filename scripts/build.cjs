@@ -5,4 +5,5 @@ for (const name of ['index.html', 'style.css']) fs.copyFileSync(`src/${name}`, `
 fs.copyFileSync('assets/logo.svg', 'dist/logo.svg');
 fs.copyFileSync('node_modules/hls.js/dist/hls.min.js', 'dist/hls.min.js');
 fs.copyFileSync('src/renderer.js', 'dist/renderer.js');
+fs.copyFileSync('src/ui-data.js', 'dist/ui-data.js');
 console.log('Nymora renderer built.');
