@@ -55,3 +55,7 @@ The CI release workflow repeats packaged HTTP/local-P2P tests, installs the actu
 * Installed native helper: `e74cad679f2975771b1c165709324dd8a881e8b340124a6e8ca24b70fb9bbe47`
 
 Known limits: unsigned Alpha builds; Windows 10 hardware not separately tested; Chromium cannot decode every MKV/HEVC/DTS/TrueHD source; no claim that every third-party torrent has reachable peers or supported media codecs. Existing 1.0.1/1.1.0 artifacts and their historical evidence remain unchanged.
+
+## Regression assertion correction
+
+The first tagged release job stopped before asset upload at a synthetic-player assertion: the video reached 60 seconds while the last recorded HTTP Range start was 0. A most-recent request offset does not establish whether Chromium already has the seek target buffered or has an overlapping read in flight. The player regression now records buffered intervals and requires additional decoded frames after the requested seek. The independent native integration test still forces a 206 request at 80% of the selected file, compares its bytes with the original media and requires incomplete download. The installed public-torrent path and production engine remain unchanged. Publication remains gated on successful complete packaged and installed public-peer tests.
