@@ -1,0 +1,77 @@
+{
+  "application": "Nymora",
+  "version": "1.0.1",
+  "alpha": true,
+  "verifiedAt": "2026-10-03T02:42:32.320Z",
+  "release": "https://github.com/igc27/Nymora/releases/tag/v1.0.1",
+  "tagCommit": "e54ca15c04774c73ffd6d25f03bc00a48ccef885",
+  "engine": {
+    "name": "WebTorrent",
+    "version": "3.0.21",
+    "license": "MIT",
+    "stableRegistryTagRechecked": "2026-10-03",
+    "requiredNode": ">=22"
+  },
+  "runtime": {
+    "version": "1.0.1",
+    "node": "24.21.0",
+    "electron": "44.5.1",
+    "chromium": "152.0.7977.130"
+  },
+  "sourceCI": [
+    {
+      "run": 37090191495,
+      "result": "SUCCESS"
+    },
+    {
+      "run": 37090221017,
+      "result": "SUCCESS"
+    }
+  ],
+  "releaseWorkflow": {
+    "run": 37090221044,
+    "result": "SUCCESS",
+    "packagedMediaFlowTests": true
+  },
+  "downloads": [
+    {
+      "name": "Nymora-1.0.1-Windows-x64-Setup.exe",
+      "bytes": 123902843,
+      "sha256": "63a6aec8b2504c88c911d6cbd3a9d6baecb24ead7c5a0631f8b99c72a3ce890b"
+    },
+    {
+      "name": "Nymora-1.0.1-Windows-x64-Portable.zip",
+      "bytes": 170318617,
+      "sha256": "3e6147fb92db58f797e9a81c3435e7b06f5e92af115f56d1e269ce20be0de3d6"
+    }
+  ],
+  "downloadHashesMatchManifestAndGitHub": true,
+  "publicSetup": {
+    "installerExitCode": 0,
+    "installedVersion": "1.0.1",
+    "p2pDesktopChecks": 20,
+    "p2pTimestamp": "2026-10-03T02:41:05.750Z",
+    "httpDesktopChecks": 33,
+    "httpTimestamp": "2026-10-03T02:41:12.865Z",
+    "realEngineIntegration": "PASS"
+  },
+  "publicPortable": {
+    "result": "PASS",
+    "version": "1.0.1",
+    "sandbox": true,
+    "contextIsolation": true,
+    "nodeIntegration": false,
+    "noticesPreserved": true,
+    "timestamp": "2026-10-03T02:40:26.153Z"
+  },
+  "identicalApplicationArchives": {
+    "sha256": "843e7d7d769f7f1d7120868d1cb1e14b82b9641beb003fa621006cc352a1a93c",
+    "match": true
+  },
+  "unmockedNativeNotice": "Real Cancel/acceptance verified on local Setup-installed 1.0.1 of the same source; see p2p-native-evidence-1.0.1.json",
+  "testContent": "Original developer-owned video and subtitles; loopback tracker and seeder; no unauthorized commercial media or public content index",
+  "priorReleasesUnchanged": [
+    "v1.0.0",
+    "v1.1.0"
+  ]
+}

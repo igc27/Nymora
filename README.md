@@ -12,7 +12,7 @@ Nymora is an independent project, not affiliated with, sponsored by or endorsed 
 
 ## Windows installation
 
-Use the [GitHub Releases page](https://github.com/igc27/Nymora/releases). Download the versioned Windows x64 Setup EXE, compare its SHA-256 value with `SHA256SUMS.txt`, and run it. The installer supports a per-user installation, Start Menu and optional desktop shortcuts, and uninstall through Windows Settings. Windows 10/11 x64 is the target; Windows 11 was tested. Releases are currently unsigned.
+Use the [1.0.1 Alpha release](https://github.com/igc27/Nymora/releases/tag/v1.0.1). Download `Nymora-1.0.1-Windows-x64-Setup.exe`, compare its SHA-256 value with `SHA256SUMS.txt`, and run it. The installer supports a per-user installation, Start Menu and optional desktop shortcuts, and uninstall through Windows Settings. Windows 10/11 x64 is the target; Windows 11 was tested. Releases are currently unsigned. Other versions remain on the [GitHub Releases page](https://github.com/igc27/Nymora/releases).
 
 An optional versioned Windows x64 Portable ZIP contains the same desktop client. Extract it before launching `Nymora.exe`. Portable mode uses the ordinary local data folder unless `NYMORA_DATA_DIR` is explicitly set.
 

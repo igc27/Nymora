@@ -42,7 +42,18 @@ Locally built installer SHA-256: `de853add1084e693c778058b99e256a2436cdf30a031e1
 
 Locally built portable ZIP SHA-256: `f151469adfbf8cf65ab5a8e5324bbfdd1c155ef06a29e59be28a594d0675a05e`.
 
-The GitHub release workflow rebuilds and tests packaged binaries before attaching them. Its public artifact hashes may differ from local builds; use the checksum manifest accompanying that release. Public-download verification is recorded separately once those assets are available.
+The public [v1.0.1 Alpha release](https://github.com/igc27/Nymora/releases/tag/v1.0.1) targets commit `e54ca15c04774c73ffd6d25f03bc00a48ccef885`. Both source CI runs passed. The [Windows release workflow](https://github.com/igc27/Nymora/actions/runs/37090221044) passed packaged HTTP/HLS and P2P tests before attaching the assets.
+
+Both public assets were downloaded and their SHA-256 values matched the public checksum manifest and GitHub digests. The public installer completed with exit 0. Its installed application passed all **20 P2P and 33 HTTP/HLS desktop checks** again, including real engine integration. Public-build P2P playback decoded 13 frames at 640×360 with 933888 of 3627633 bytes downloaded, and magnet resume reached 60.704142 seconds. The numerical results in the earlier checks section describe the local build; current machine-readable desktop evidence is from this public installer. The separate actual native-notice evidence is from the earlier local build of the same consent code.
+
+The downloaded portable copy passed startup, About/version, notices, sandbox, context-isolation and disabled Node-integration checks. The installed and portable application archives have identical SHA-256: `843e7d7d769f7f1d7120868d1cb1e14b82b9641beb003fa621006cc352a1a93c`.
+
+Public release SHA-256 values:
+
+* `Nymora-1.0.1-Windows-x64-Setup.exe`: `63a6aec8b2504c88c911d6cbd3a9d6baecb24ead7c5a0631f8b99c72a3ce890b`
+* `Nymora-1.0.1-Windows-x64-Portable.zip`: `3e6147fb92db58f797e9a81c3435e7b06f5e92af115f56d1e269ce20be0de3d6`
+
+See [public release verification](p2p-release-evidence-1.0.1.json) and [the published release screenshot](screenshots/release-1.0.1.png).
 
 Tests use original developer-owned 90-second H.264/AAC media and original English/Arabic subtitles, only a loopback TCP seeder and HTTP tracker, with public discovery disabled in isolated QA. Public DHT/PEX reachability, UDP/WS trackers and WebRTC interoperability are not independently certified. Optional uTP is omitted. Codecs depend on Chromium; a .mkv extension does not guarantee that its codecs are playable. v2-only magnets, DRM and legacy/IPFS-only sources are unsupported. Selected video plus piece padding must fit the configured 256–16384 MB cache; default 2 GiB. Windows 11 was tested, separate Windows 10 hardware was not. Installer is unsigned.
 

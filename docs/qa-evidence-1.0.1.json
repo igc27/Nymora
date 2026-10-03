@@ -1,7 +1,7 @@
 {
   "application": "Nymora",
   "version": "1.0.1",
-  "timestamp": "2026-10-03T02:29:31.975Z",
+  "timestamp": "2026-10-03T02:41:12.865Z",
   "executable": "Installed Windows Setup application",
   "runner": "1.63.0",
   "legalMedia": "Original developer-generated 90-second motion/color/tone video; original English and Arabic test subtitles",
@@ -54,7 +54,7 @@
     {
       "step": "Decoded Generated MP4 playback",
       "result": "PASS",
-      "details": "{\"position\":0.313268,\"duration\":90,\"decodedFrames\":13,\"dimensions\":[640,360]}"
+      "details": "{\"position\":0.317054,\"duration\":90,\"decodedFrames\":13,\"dimensions\":[640,360]}"
     },
     {
       "step": "Seeking works",
@@ -114,7 +114,7 @@
     {
       "step": "Decoded Generated WebM playback",
       "result": "PASS",
-      "details": "{\"position\":10.253886,\"duration\":90.003,\"decodedFrames\":31,\"dimensions\":[640,360]}"
+      "details": "{\"position\":10.297814,\"duration\":90.003,\"decodedFrames\":40,\"dimensions\":[640,360]}"
     },
     {
       "step": "Resume position survives restart",
@@ -124,7 +124,7 @@
     {
       "step": "Decoded Generated HLS playback",
       "result": "PASS",
-      "details": "{\"position\":10.253886,\"duration\":90.00000300000002,\"decodedFrames\":22,\"dimensions\":[640,360]}"
+      "details": "{\"position\":10.297814,\"duration\":90.00000300000002,\"decodedFrames\":22,\"dimensions\":[640,360]}"
     },
     {
       "step": "HLS playlist/segment playback",
@@ -134,7 +134,7 @@
     {
       "step": "Decoded Generated MP4 playback",
       "result": "PASS",
-      "details": "{\"position\":0.305739,\"duration\":90,\"decodedFrames\":13,\"dimensions\":[640,360]}"
+      "details": "{\"position\":0.312015,\"duration\":90,\"decodedFrames\":13,\"dimensions\":[640,360]}"
     },
     {
       "step": "Season selection and exact episode stream ID",

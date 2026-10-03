@@ -1,7 +1,7 @@
 {
   "application": "Nymora",
   "version": "1.0.1",
-  "timestamp": "2026-10-03T02:29:25.516Z",
+  "timestamp": "2026-10-03T02:41:05.750Z",
   "runtime": {
     "version": "1.0.1",
     "node": "24.21.0",
@@ -44,7 +44,7 @@
     {
       "step": "Confirmed infoHash resolves real peer metadata, selects explicit file and decodes video before full download",
       "result": "PASS",
-      "details": "{\"position\":0.310787,\"duration\":90,\"frames\":13,\"width\":640,\"height\":360,\"downloaded\":884736,\"videoSize\":3627633}"
+      "details": "{\"position\":0.314456,\"duration\":90,\"frames\":13,\"width\":640,\"height\":360,\"downloaded\":933888,\"videoSize\":3627633}"
     },
     {
       "step": "P2P pause and resume",
@@ -89,7 +89,7 @@
     {
       "step": "Magnet playback after restart requires fresh consent and resumes saved position",
       "result": "PASS",
-      "details": "{\"position\":60.627798,\"duration\":90,\"frames\":12,\"width\":640,\"height\":360}"
+      "details": "{\"position\":60.704142,\"duration\":90,\"frames\":8,\"width\":640,\"height\":360}"
     },
     {
       "step": "Natural playback completion saves progress and stops the P2P session",
