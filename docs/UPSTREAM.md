@@ -21,7 +21,9 @@ Upstream core uses explicit state models and effects behind an Env boundary for 
 
 ## Reviewing future changes
 
-The 1.1.0 torrent backend pins WebTorrent 3.0.21 at `e75f75c7ac6b755c2eb36842c51806da8ff560ff` (MIT) and bittorrent-tracker 11.2.3 at `33fbbc5b9d529650884b1a836dbe1948b56d66a4` (MIT). The tracker fork's numeric IPv4/compact-peer changes and original compact-address compatibility module are documented in OPEN_SOURCE_AUDIT.md. Update their source-controlled file dependencies and regenerate the lockfile together. Include native WebRTC source and notice obligations from third_party/NATIVE_SOURCE.md in future dependency reviews. A new engine must preserve the native consent boundary and pass tests using developer-owned torrents before any playback claim.
+The 1.0.2 production torrent backend pins librqbit 9.0.1 at `a499d2f243d124e144aef137afe7cb304a6e3f36` (Apache-2.0). Keep the Rust revision and Cargo.lock aligned, regenerate full native notices with the checked-in cargo-about configuration/template, and preserve the MIT Nymora wrapper boundary. Any engine update must preserve idle startup and fresh native consent, and pass the complete installed-client legal public internet-peer path, including metadata, decoded playback, seeking, subtitles and progress. Local self-seeder regressions alone are insufficient.
+
+Historical 1.0.1/1.1.0 releases used WebTorrent 3.0.21 at `e75f75c7ac6b755c2eb36842c51806da8ff560ff` and bittorrent-tracker 11.2.3 at `33fbbc5b9d529650884b1a836dbe1948b56d66a4` (MIT). Those dependencies remain development-only fixtures in 1.0.2. Their fork/native provenance remains documented in OPEN_SOURCE_AUDIT.md and third_party/NATIVE_SOURCE.md; do not distribute the fixtures as production engine code.
 
 Clone each upstream into a separate ignored checkout, fetch its current default branch, and diff from the pinned commit. Compare selected files against vendor/stremio-addon-client and review protocol changes. The complete upstream Git history remains available at the above repositories; Nymora starts its own history and records exact source origins rather than inventing shared ancestry.
 
