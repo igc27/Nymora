@@ -2,13 +2,13 @@
 
 # NYMORA
 
-**Version 1.1.0 · Windows x64 · Independent open-source media client**
+**Version 1.0.1 Alpha · Windows x64 · Independent open-source media client**
 
 Bring your own compatible addons. Browse their catalogs, search for a title, choose a movie or episode and play a supported stream inside the desktop application. Your library, addons and viewing progress stay on your computer.
 
 Nymora is an independent project, not affiliated with, sponsored by or endorsed by Stremio. It reuses selected MIT-licensed Stremio addon-client components and follows the HTTP addon protocol. It does not provide or host movies or television content. Third-party addons are independently maintained services.
 
-**Release status:** [Version 1.1.0 is published](https://github.com/igc27/Nymora/releases/tag/v1.1.0) with consent-gated BitTorrent streaming. Its public installer passed the full P2P and HTTP/HLS desktop flows; both public downloads have verified checksums. See [P2P verification](docs/P2P_QA.md). The earlier [1.0.0 release](https://github.com/igc27/Nymora/releases/tag/v1.0.0) and its [verification record](docs/QA.md) remain available.
+**Release status:** The requested [1.0.1 Alpha](https://github.com/igc27/Nymora/releases/tag/v1.0.1) provides local, free, consent-gated BitTorrent playback in the existing player, with improved default video selection. See [1.0.1 P2P verification](docs/P2P_QA-1.0.1.md). The previously published [1.0.0](https://github.com/igc27/Nymora/releases/tag/v1.0.0) and [1.1.0](https://github.com/igc27/Nymora/releases/tag/v1.1.0) releases remain available.
 
 ## Windows installation
 
@@ -49,7 +49,7 @@ Selecting any infoHash, magnet URI or backend-marked P2P source opens a native *
 
 The notice explains that the device may download and upload pieces, its IP may be visible to peers, and users must ensure that they are authorized to access the content. Availability and legality depend on the source and applicable laws. The notice does not grant copyright permission. Nymora remains a neutral client; third-party addons and sources are independently provided.
 
-After acceptance, the interface shows Finding peers, Fetching metadata and Buffering as the real backend advances, then opens the internal player. Supplied fileIdx, filename, videoSize and tracker/DHT hints guide selection; metadata is not fabricated. Seeking prioritizes future byte ranges without waiting for a complete download. English/Arabic subtitles and playback progress work through the existing player. Ending or exiting playback closes the P2P session.
+After acceptance, the interface shows Connecting to peers, Fetching torrent metadata, Finding video file and Buffering as the real backend advances, then opens the internal player. Supplied fileIdx, filename, videoSize and tracker/DHT hints guide selection; metadata is not fabricated. Seeking prioritizes future byte ranges without waiting for a complete download. English/Arabic subtitles and playback progress work through the existing player. Ending or exiting playback closes the P2P session.
 
 Settings shows the owned torrent cache size and offers a limit and clear control. The default is 2 GiB; the selected video plus piece padding must fit the configured limit. Closed session pieces remain until cleared or replaced by the next session. Clearing requires an inactive session and preserves unrelated files. Torrent filenames never become disk paths. No content trackers, indexes or addons are preinstalled; discovery uses the selected source's hints and generic protocol bootstrap.
 

@@ -28,7 +28,9 @@ jobs:
         run: |
           $env:NYMORA_TEST_EXE = (Resolve-Path release/win-unpacked/Nymora.exe).Path
           npm run test:e2e
+          if ($LASTEXITCODE -ne 0) { throw 'Packaged HTTP/HLS checks failed' }
           npm run test:p2p
+          if ($LASTEXITCODE -ne 0) { throw 'Packaged P2P checks failed' }
       - name: SHA-256 checksums
         shell: pwsh
         run: |

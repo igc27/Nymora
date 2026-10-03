@@ -1,0 +1,175 @@
+{
+  "application": "Nymora",
+  "version": "1.0.1",
+  "timestamp": "2026-10-03T02:29:31.975Z",
+  "executable": "Installed Windows Setup application",
+  "runner": "1.63.0",
+  "legalMedia": "Original developer-generated 90-second motion/color/tone video; original English and Arabic test subtitles",
+  "evidence": [
+    {
+      "step": "Fresh startup with no installed addons",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Invalid manifest visible error",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Addon installed",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Addon survives application restart",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Real movie and series addon catalogs load",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Catalog switching, declared genre filter, skip pagination",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Addon search returns movie and series",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Network failure visible while another addon still supplies streams",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Movie details and Library save",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Decoded Generated MP4 playback",
+      "result": "PASS",
+      "details": "{\"position\":0.313268,\"duration\":90,\"decodedFrames\":13,\"dimensions\":[640,360]}"
+    },
+    {
+      "step": "Seeking works",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Pause",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Resume",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Volume and mute controls",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Native fullscreen",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "English addon subtitle rendered",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Arabic Unicode subtitle rendered with automatic RTL",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Subtitle size and delay settings",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Subtitles can be disabled",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Progress saved to disk",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Continue Watching",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Decoded Generated WebM playback",
+      "result": "PASS",
+      "details": "{\"position\":10.253886,\"duration\":90.003,\"decodedFrames\":31,\"dimensions\":[640,360]}"
+    },
+    {
+      "step": "Resume position survives restart",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Decoded Generated HLS playback",
+      "result": "PASS",
+      "details": "{\"position\":10.253886,\"duration\":90.00000300000002,\"decodedFrames\":22,\"dimensions\":[640,360]}"
+    },
+    {
+      "step": "HLS playlist/segment playback",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Decoded Generated MP4 playback",
+      "result": "PASS",
+      "details": "{\"position\":0.305739,\"duration\":90,\"decodedFrames\":13,\"dimensions\":[640,360]}"
+    },
+    {
+      "step": "Season selection and exact episode stream ID",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Episode progress saved",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Closing the native window saves active playback",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Library persists",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Preferred subtitle language persists",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "Addon removal",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "step": "End-to-end core media flow",
+      "result": "PASS",
+      "details": ""
+    }
+  ]
+}

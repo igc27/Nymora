@@ -30,7 +30,7 @@ class TorrentEngine {
     const Client = await this.clientClass();
     if (generation !== this.generation) throw new Error('P2P preparation was cancelled.');
     const PieceStore = this.cache.create(limit);
-    this.phase('finding-peers', 'Finding peers…'); this.state.startedSessions++;
+    this.phase('finding-peers', 'Connecting to peers…'); this.state.startedSessions++;
     this.rangeRequests = 0; this.lastRangeStart = 0;
     try {
       this.client = new Client({ dht: !this.localOnly, tracker: true, lsd: !this.localOnly, utPex: true, utp: false, natUpnp: false, natPmp: false, webSeeds: false, maxConns: 40 });
@@ -38,12 +38,13 @@ class TorrentEngine {
       const torrent = this.client.add(source.magnet, { store: PieceStore, storeCacheSlots: 4, deselect: true, strategy: 'sequential', announce: [], uploads: 4 });
       this.torrent = torrent;
       torrent.on('error', error => this.fail(error, generation));
-      torrent.on('wire', () => { if (generation === this.generation && !torrent.metadata) this.phase('fetching-metadata', 'Fetching metadata…'); });
-      torrent.on('metadata', () => { if (generation === this.generation) this.phase('buffering', 'Buffering…'); });
+      torrent.on('wire', () => { if (generation === this.generation && !torrent.metadata) this.phase('fetching-metadata', 'Fetching torrent metadata…'); });
+      torrent.on('metadata', () => { if (generation === this.generation) this.phase('selecting-file', 'Finding video file…'); });
       for (const node of source.dhtNodes) this.client.dht?.addNode(node);
       await this.waitFor(torrent, 'ready', this.metadataTimeout, 'No torrent metadata arrived. Check the source availability and retry.', () => torrent.ready);
       if (generation !== this.generation) throw new Error('P2P preparation was cancelled.');
       if (torrent.files.length > 10000 || torrent.pieces.length > 100000 || torrent.pieceLength > 16 * 1024 ** 2) throw new Error('Torrent metadata exceeds the supported safety limits.');
+      this.phase('selecting-file', 'Finding video file…');
       this.file = selectFile(torrent.files, source);
       if (!this.file.length || this.file.length + 2 * torrent.pieceLength > limit) throw new Error('Selected video exceeds the torrent cache limit. Increase the limit in Settings or choose a smaller file.');
       torrent.files.forEach(file => file.deselect()); this.file.select(0);

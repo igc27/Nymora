@@ -1,0 +1,13 @@
+{
+  "result": "PASS",
+  "nativeCancelStartedSessions": 0,
+  "nativeAcceptStartedSessions": 1,
+  "decoded": {
+    "frames": 13,
+    "position": 0.31271
+  },
+  "legalLoopbackMediaOnly": true,
+  "timestamp": "2026-10-03T02:31:08.401Z",
+  "version": "1.0.1",
+  "executable": "Setup-installed Windows application"
+}

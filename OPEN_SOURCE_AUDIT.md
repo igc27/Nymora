@@ -1,6 +1,8 @@
-# Nymora 1.1.0 open-source audit
+# Nymora 1.0.1 open-source audit
 
 Audit started 2026-10-03. This file records evidence and distribution decisions, not a claim that every Stremio repository shares a license.
+
+For the requested 1.0.1 release, npm registry metadata was rechecked on 2026-10-03: the stable `latest` tag is WebTorrent 3.0.21, licensed MIT, with Node >=22 required. Its exact npm source revision remains `e75f75c7ac6b755c2eb36842c51806da8ff560ff`. The packaged Electron/Node versions and actual video-flow results are recorded in docs/P2P_QA-1.0.1.md; no paid service is involved. The prior 1.0.0 and 1.1.0 releases remain unchanged.
 
 ## Reused upstream components
 

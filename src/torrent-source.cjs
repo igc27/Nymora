@@ -92,6 +92,9 @@ function selectFile(files, source) {
   const sized = video.filter(file => file.length === source.videoSize);
   if (sized.length === 1) return sized[0];
   if (!video.length) throw new Error('This torrent contains no supported video file.');
-  return video.sort((a, b) => b.length - a.length)[0];
+  // Preserve an explicit index/name/size selection, but avoid preview samples
+  // when choosing a default from real torrent metadata.
+  const mainVideos = video.filter(file => !/(^|[\/\\._\s-])samples?(?=$|[\/\\._\s-])/i.test(file.path || file.name));
+  return (mainVideos.length ? mainVideos : video).sort((a, b) => b.length - a.length)[0];
 }
 module.exports = { isP2P, normalizeTorrent, selectFile, hash, tracker };

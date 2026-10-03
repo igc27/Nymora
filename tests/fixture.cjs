@@ -41,6 +41,12 @@ async function startFixture(directory = path.resolve('.qa/media'), options = {})
       return;
     }
     const parts = url.pathname.split('/').filter(Boolean);
+    const splitAddon = { 'catalog-addon': { id: 'catalog', resources: ['catalog', 'meta'] }, 'stream-addon': { id: 'stream', resources: ['stream'] }, 'subtitle-addon': { id: 'subtitle', resources: ['subtitles'] } }[parts[0]];
+    if (splitAddon) {
+      parts.shift();
+      if (parts[0] === 'manifest.json') return send({ ...manifest, id: `org.nymora.legal-${splitAddon.id}`, name: `Nymora legal ${splitAddon.id} addon`, resources: splitAddon.resources, catalogs: splitAddon.id === 'catalog' ? manifest.catalogs : undefined });
+      if (!splitAddon.resources.includes(parts[0])) { res.writeHead(404); res.end(); return; }
+    }
     const resource = parts[0], type = parts[1], id = decodeURIComponent((parts[2] || '').replace(/\.json$/, ''));
     const extra = new URLSearchParams(decodeURIComponent((parts[3] || '').replace(/\.json$/, '')));
     if (resource === 'catalog') {

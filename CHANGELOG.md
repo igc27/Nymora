@@ -1,5 +1,17 @@
 # Changelog
 
+## Nymora 1.0.1
+
+Requested Alpha version for the existing local BitTorrent capability. The already published 1.0.0 and 1.1.0 releases remain unchanged.
+
+* Routes infoHash/magnet/P2P sources through fresh native consent and the managed local WebTorrent backend into the existing player.
+* Default torrent file selection now prefers main video files over preview samples; explicit fileIdx and filename/size hints retain precedence.
+* Preparation shows connecting, metadata, video-file selection and buffering stages.
+* Packaged tests cover separate catalog/meta, stream-only and subtitle-only addons, P2P volume/mute/fullscreen, local subtitles, delay, seeking and saved episode progress.
+* Release publication stops if either packaged HTTP/HLS or P2P tests fail.
+
+See docs/P2P_QA-1.0.1.md for actual installed-application verification.
+
 ## Nymora 1.1.0
 
 * Fresh native P2P Streaming Notice for every infoHash, magnet or P2P-backend source; Cancel leaves the source list intact and starts no torrent activity.

@@ -25,6 +25,14 @@ test('Explicit file index, filename and video size choose actual metadata; no fi
   assert.equal(selectFile(files, { fileIdx: 1 }), files[1]); assert.equal(selectFile(files, { filename: 'original.mp4' }), files[1]); assert.equal(selectFile(files, { videoSize: 2345 }), files[2]);
   assert.throws(() => selectFile(files, { fileIdx: 0 }), /video/); assert.throws(() => selectFile(files, { fileIdx: 9 }), /index/);
 });
+test('Default file selection prefers a main video over samples while explicit selections remain exact', () => {
+  const files = [{ name: 'poster.jpg', length: 90000 }, { name: 'notes.nfo', length: 70000 }, { name: 'preview.mkv', path: 'Samples/preview.mkv', length: 60000 }, { name: 'motion.sample.mp4', length: 50000 }, { name: 'motion.m4v', length: 30000 }, { name: 'motion.webm', length: 20000 }];
+  assert.equal(selectFile(files, {}), files[4]);
+  assert.equal(selectFile(files, { fileIdx: 2 }), files[2]);
+  assert.equal(selectFile(files, { filename: 'motion.sample.mp4' }), files[3]);
+  assert.equal(selectFile([files[3]], {}), files[3]);
+  assert.throws(() => selectFile(files.slice(0, 2), {}), /no supported video/);
+});
 test('No engine start, stop, cache work or HTTP replacement before native consent; Cancel and forged consent do nothing', async () => {
   let started = 0, stopped = 0, replacement = 0, confirmResolve, shown;
   const torrents = { status: () => ({ phase: 'idle', startedSessions: started }), start: async () => { started++; return { p2p: true }; }, stop: async () => { stopped++; } };
