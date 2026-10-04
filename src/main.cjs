@@ -52,7 +52,25 @@ const operations = {
   playbackStatus: () => playback.status(),
   copyP2PDiagnostics: () => { const value = torrents.diagnostics(); clipboard.writeText(JSON.stringify(value, null, 2)); return value; },
   cacheSummary: () => ({ bytes: torrents.cache.size(), limitMB: store.data.settings.torrentCacheMB, active: !!torrents.client }),
-  clearTorrentCache: () => { const removedBytes = torrents.cache.clear(); return { removedBytes, bytes: torrents.cache.size() }; },
+  clearTorrentCache: () => { const removedBytes = torrents.cache.clearInactive(); return { removedBytes, bytes: torrents.cache.size() }; },
+  recentSearch({ term, remove, clear } = {}) {
+    let history = Array.isArray(store.data.searchHistory) ? store.data.searchHistory : [];
+    if (clear === true) history = [];
+    else if (typeof term === 'string' && term.trim().length <= 500) {
+      const query = term.trim(); history = history.filter(s => s.toLocaleLowerCase() !== query.toLocaleLowerCase());
+      if (query && remove !== true) history.unshift(query);
+    }
+    store.data.searchHistory = history.slice(0, 20); store.save(); return snapshot();
+  },
+  dismissContinuing({ key, undo, reset } = {}) {
+    const keys = Array.isArray(store.data.dismissedContinuing) ? store.data.dismissedContinuing : [];
+    if (reset === true) store.data.dismissedContinuing = [];
+    else {
+      if (typeof key !== 'string' || !Object.hasOwn(store.data.progress, key)) throw new Error('Unknown playback entry.');
+      store.data.dismissedContinuing = undo === true ? keys.filter(k => k !== key) : [...new Set([...keys, key])].slice(-2000);
+    }
+    store.save(); return snapshot();
+  },
   quitReady: () => { allowClose = true; setImmediate(() => window.close()); },
   progress: entry => { store.progress(entry); return snapshot(); },
   watched({ type, id, mediaId, name, poster, watched }) {
@@ -64,11 +82,16 @@ const operations = {
   library(meta) {
     if (!meta || typeof meta.id !== 'string' || typeof meta.type !== 'string') throw new Error('Invalid title.');
     const exists = store.data.library.some(m => m.id === meta.id && m.type === meta.type);
-    store.data.library = exists ? store.data.library.filter(m => m.id !== meta.id || m.type !== meta.type) : [...store.data.library, { id: meta.id, type: meta.type, name: meta.name, poster: meta.poster, description: meta.description }];
+    store.data.library = exists ? store.data.library.filter(m => m.id !== meta.id || m.type !== meta.type) : [...store.data.library, { id: meta.id, type: meta.type, name: meta.name, poster: meta.poster, background: meta.background || meta.backdrop, runtime: meta.runtime, releaseInfo: meta.releaseInfo || meta.year, imdbRating: meta.imdbRating, genres: meta.genres, description: meta.description }];
     store.save(); return snapshot();
   },
   settings(value) {
     const next = {};
+    for (const [key, options] of Object.entries({ posterStyle: ['portrait', 'landscape'], interfaceStyle: ['classic', 'glass'], subtitleAppearance: ['shadow', 'outline', 'box'], p2pWaitMode: ['patient', '5m', '10m', 'none'] })) {
+      if (value[key] !== undefined) { if (!options.includes(value[key])) throw new Error('Invalid preference.'); next[key] = value[key]; }
+    }
+    for (const key of ['startupIntro', 'startupSound']) if (typeof value[key] === 'boolean') next[key] = value[key];
+    if (typeof value.audioLanguage === 'string' && /^[a-z-]{0,20}$/i.test(value.audioLanguage)) next.audioLanguage = value.audioLanguage;
     if (typeof value.blurEpisodeThumbnails === 'boolean') next.blurEpisodeThumbnails = value.blurEpisodeThumbnails;
     for (const key of ['homeCatalogOrder', 'hiddenCatalogs']) {
       if (value[key] !== undefined) {
@@ -81,13 +104,14 @@ const operations = {
     if (value.torrentCacheMB !== undefined) {
       if (!Number.isInteger(value.torrentCacheMB) || value.torrentCacheMB < 256 || value.torrentCacheMB > 16384) throw new Error('Torrent cache limit must be between 256 and 16384 MB.');
       if (torrents.client) throw new Error('Stop P2P playback before changing its cache limit.');
-      if (torrents.cache.size() > value.torrentCacheMB * 1024 ** 2) torrents.cache.clear();
+      torrents.cache.enforce(value.torrentCacheMB * 1024 ** 2);
       next.torrentCacheMB = value.torrentCacheMB;
     }
     store.data.settings = { ...store.data.settings, ...next }; store.save(); return snapshot();
   },
   async external({ url }) { await shell.openExternal(validURL(url)); },
   fullscreen: ({ enabled } = {}) => { requestedFullscreen = typeof enabled === 'boolean' ? enabled : !requestedFullscreen; window.setFullScreen(requestedFullscreen); return requestedFullscreen; },
+  windowControl({ action }) { if (action === 'minimize') window.minimize(); else if (action === 'maximize') window.isMaximized() ? window.unmaximize() : window.maximize(); else if (action === 'close') window.close(); },
   async notices() { return fs.readFileSync(path.join(app.getAppPath(), 'THIRD_PARTY_NOTICES.md'), 'utf8'); }
 };
 app.whenReady().then(async () => {
@@ -95,6 +119,8 @@ app.whenReady().then(async () => {
   configureTransport(chromiumTransport(addonSession));
   store = new Store(app.getPath('userData')); media = await createMediaProxy();
   torrents = new TorrentEngine({ cacheDirectory: path.join(app.getPath('userData'), 'torrent-cache-v1'), helperPath: app.isPackaged ? path.join(process.resourcesPath, 'torrent-engine', 'nymora-torrent-helper.exe') : undefined, localOnly: process.env.NYMORA_P2P_TEST_MODE === 'local-only' });
+  torrents.waitPolicy = () => store.data.settings.p2pWaitMode;
+  torrents.cache.enforce(store.data.settings.torrentCacheMB * 1024 ** 2);
   await torrents.initialize().catch(() => {});
   consent = new P2PConsent({ store, show: notice => window.webContents.send('p2p-notice', notice), dismiss: nonce => window.webContents.send('p2p-notice-dismiss', nonce) });
   playback = new Playback({ media, torrents, confirm: options => consent.confirm(options), cacheLimit: () => store.data.settings.torrentCacheMB * 1024 ** 2 });
@@ -109,7 +135,8 @@ app.whenReady().then(async () => {
     }
     callback({ cancel: !allowed });
   });
-  window = new BrowserWindow({ title: 'Nymora', width: 1320, height: 860, minWidth: 940, minHeight: 640, backgroundColor: '#0c0e16', icon: path.join(app.getAppPath(), 'assets/icon.ico'), autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true } });
+  window = new BrowserWindow({ title: 'Nymora', frame: false, fullscreenable: true, width: 1320, height: 860, minWidth: 940, minHeight: 640, backgroundColor: '#0c0e16', icon: path.join(app.getAppPath(), 'assets/icon.ico'), autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true } });
+  window.removeMenu();
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('before-input-event', (_event, input) => {
     if (input.type === 'keyDown' && input.key === 'Escape' && (requestedFullscreen || window.isFullScreen())) { requestedFullscreen = false; window.setFullScreen(false); }

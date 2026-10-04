@@ -34,6 +34,22 @@ const NymoraUI = (() => {
     return [...catalogs].sort((a, b) => (rank.get(catalogKey(a)) ?? order.length) - (rank.get(catalogKey(b)) ?? order.length));
   }
   const typingTarget = node => !!node?.closest?.('input,textarea,select,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="combobox"]');
-  return { mergeMetadata, catalogKey, orderedCatalogs, typingTarget };
+  function clock(seconds) {
+    const s = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
+    const tail = `${Math.floor(s / 60) % 60}:${String(s % 60).padStart(2, '0')}`;
+    return s >= 3600 ? `${Math.floor(s / 3600)}:${tail.padStart(5, '0')}` : tail;
+  }
+  function runtime(value) {
+    if (value == null || value === '') return '';
+    const text = String(value).trim(); let minutes;
+    if (/^\d+(?:\.\d+)?\s*(?:min(?:ute)?s?|m)?$/i.test(text)) minutes = Number.parseFloat(text);
+    else if (/^\d+(?:\.\d+)?\s*(?:seconds?|sec|s)$/i.test(text)) minutes = Number.parseFloat(text) / 60;
+    else if (/^\d+:\d{2}(?::\d{2})?$/.test(text)) { const fields = text.split(':').map(Number); minutes = fields.length === 3 ? fields[0] * 60 + fields[1] : fields[0]; }
+    else { const iso = /^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/i.exec(text); if (iso) minutes = Number(iso[1] || 0) * 60 + Number(iso[2] || 0) + Number(iso[3] || 0) / 60; }
+    if (!Number.isFinite(minutes)) return text;
+    const m = Math.max(1, Math.floor(minutes)); return m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ''}` : `${m}m`;
+  }
+  const languageMatches = (a, b) => { const aliases = { eng: 'en', ara: 'ar', spa: 'es', fra: 'fr', deu: 'de', jpn: 'ja', por: 'pt', rus: 'ru', hin: 'hi', zho: 'zh' }; const code = v => aliases[String(v || '').toLowerCase()] || String(v || '').toLowerCase().split('-')[0]; return !!a && !!b && code(a) === code(b); };
+  return { mergeMetadata, catalogKey, orderedCatalogs, typingTarget, clock, runtime, languageMatches };
 })();
 if (typeof module !== 'undefined') module.exports = NymoraUI;

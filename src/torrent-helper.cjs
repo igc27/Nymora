@@ -25,9 +25,9 @@ class TorrentHelper extends EventEmitter {
   wait(event, timeout) {
     return new Promise((resolve, reject) => {
       const finish = (error, message) => { clearTimeout(timer); this.removeListener('message', receive); this.pending.delete(cancel); error ? reject(error) : resolve(message); };
-      const receive = message => { if (message.event === event) finish(null, message); else if (message.event === 'resolve-error') finish(new Error('Torrent metadata exchange failed.')); };
+      const receive = message => { if (message.event === event) finish(null, message); else if (event === 'metadata' && message.event === 'resolve-error') finish(Object.assign(new Error('Torrent metadata exchange failed.'), { code: 'METADATA_EXCHANGE_FAILED' })); };
       const cancel = error => finish(error);
-      const timer = setTimeout(() => finish(new Error(`P2P engine ${event === 'metadata' ? 'metadata' : 'startup'} timeout.`)), timeout);
+      const timer = timeout > 0 ? setTimeout(() => finish(new Error(`P2P engine ${event === 'metadata' ? 'metadata' : 'startup'} timeout.`)), timeout) : null;
       this.pending.add(cancel); this.on('message', receive);
     });
   }
@@ -44,7 +44,7 @@ class TorrentHelper extends EventEmitter {
   async request(route, options = {}, binary = false) {
     if (!this.base) throw new Error('P2P engine is unavailable.');
     const response = await fetch(this.base + route, { ...options, headers: { ...options.headers, Authorization: this.authorization }, signal: options.signal || AbortSignal.timeout(10000), redirect: 'error' });
-    if (!response.ok) { await response.body?.cancel(); throw new Error(`P2P engine request failed (HTTP ${response.status}).`); }
+    if (!response.ok) { await response.body?.cancel(); throw Object.assign(new Error(`P2P engine request failed (HTTP ${response.status}).`), { code: 'ENGINE_HTTP_FAILURE', status: response.status }); }
     return binary ? response : response.json();
   }
   async resolve(source, timeout) {

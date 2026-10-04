@@ -89,7 +89,7 @@ async function main() {
     expect(JSON.parse(fs.readFileSync(path.join(profile, 'nymora.json'), 'utf8')).progress['series:nymora:series:2:1'].position).toBeGreaterThanOrEqual(25); passed('Episode progress saved');
     await launch(); await nav('Home'); await expect(page.getByRole('heading', { name: 'Continue Watching' })).toBeVisible(); passed('Closing the native window saves active playback');
     await nav('Library'); await expect(page.getByRole('button', { name: 'Open Nymora Motion Study' })).toBeVisible(); passed('Library persists');
-    await nav('Settings'); expect(await page.getByLabel('Preferred subtitle language').inputValue()).toBe('ara'); passed('Preferred subtitle language persists');
+    await nav('Settings'); await page.getByRole('button',{name:'Subtitles & Audio settings',exact:true}).click(); expect(await page.getByLabel('Preferred subtitle language').inputValue()).toBe('ara'); passed('Preferred subtitle language persists');
     await nav('Addons');
     for (const count of [1, 0]) { await page.getByRole('button', { name: 'Remove', exact: true }).first().click(); await expect(page.getByRole('heading', { name: `Installed addons (${count})` })).toBeVisible(); }
     passed('Addon removal');

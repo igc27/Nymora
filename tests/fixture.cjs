@@ -12,6 +12,7 @@ async function startFixture(directory = path.resolve('.qa/media'), options = {})
     res.setHeader('Access-Control-Allow-Origin', '*');
     function send(value) { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(value)); }
     const url = new URL(req.url, 'http://localhost');
+    if (url.pathname === '/qa-art.svg') { res.setHeader('Content-Type', 'image/svg+xml'); res.end('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600"><rect width="400" height="600" fill="#173b32"/><circle cx="200" cy="250" r="95" fill="#7fcdb4" opacity=".4"/><text x="60" y="440" font-size="35" fill="#aaf3d7">Nymora QA</text></svg>'); return; }
     if (url.pathname === '/manifest.json') return send(manifest);
     if (url.pathname === '/invalid/manifest.json') return send({ name: 'Invalid addon' });
     if (url.pathname === '/broken/manifest.json') return send({ ...manifest, id: 'org.nymora.offline', name: 'Offline test addon', resources: ['stream'], catalogs: [] });

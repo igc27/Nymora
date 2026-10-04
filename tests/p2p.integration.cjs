@@ -12,7 +12,7 @@ const { startTorrentFixture } = require('./torrent-fixture.cjs');
     assert.equal(engine.client, null); console.log('PASS no torrent client exists before starting the accepted session');
     const unavailable = normalizeTorrent({ infoHash: 'f'.repeat(40), trackers: fixture.info.sources.map(value => value.slice(8)) });
     engine.metadataTimeout = 600;
-    await assert.rejects(engine.start(unavailable), /No peers|Trackers could not|metadata.*timed out/);
+    await assert.rejects(engine.start(unavailable), /waiting limit was reached/);
     assert.equal(engine.status().phase, 'error'); assert.equal(engine.client, null); assert.equal(engine.cache.active, null);
     engine.metadataTimeout = 90000;
     const cancelled = engine.start(unavailable);
