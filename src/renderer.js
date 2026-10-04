@@ -2,6 +2,36 @@
 const root = document.getElementById('app');
 const call = (op, value) => window.nymora.call(op, value);
 let state, page = 'Home', generation = 0, currentPlayer = null, preparingSource = false, activeStreamKey = null;
+let route = null;
+const navigationHistory = [];
+// Physical codes are preferred; virtual/accessibility keyboards can omit them.
+function shortcutCode(event) { return event.code || ({ ' ': 'Space', f: 'KeyF', F: 'KeyF', 'ب': 'KeyF', m: 'KeyM', M: 'KeyM', 'ة': 'KeyM' })[event.key] || event.key; }
+function rememberRoute(next, replace = false) {
+  if (!replace && route && (route.kind !== next.kind || route.category !== next.category || route.initial?.id !== next.initial?.id || route.episodeId !== next.episodeId || route.person?.id !== next.person?.id || route.catalogIndex !== next.catalogIndex || JSON.stringify(route.filters) !== JSON.stringify(next.filters))) navigationHistory.push({ ...route, scrollY });
+  route = next;
+}
+function backControl(content, label = 'Back') {
+  if (!navigationHistory.length || (route?.kind === 'Home' && !route.category)) return;
+  const back = button('← ' + label, goBack, 'button subtle small page-back');
+  back.setAttribute('aria-label', label === 'Settings' ? 'Back to Settings' : label);
+  content.prepend(back);
+}
+async function goBack() {
+  if (currentPlayer || preparingSource || !navigationHistory.length) return;
+  const previous = navigationHistory.pop();
+  if (previous.kind === 'Details') await openDetails(previous.initial, previous.resume, previous, true);
+  else if (previous.kind === 'Person') await openPerson(previous.person, true);
+  else await navigate(previous, true);
+  if (route.kind === previous.kind) scrollTo(0, previous.scrollY || 0);
+}
+document.addEventListener('keydown', event => {
+  if (currentPlayer || preparingSource || NymoraUI.typingTarget(event.target) || document.querySelector('dialog[open]')) return;
+  const code = shortcutCode(event);
+  if ((event.altKey && code === 'ArrowLeft') || (!event.altKey && !event.ctrlKey && !event.metaKey && code === 'Backspace')) {
+    if (navigationHistory.length) { event.preventDefault(); goBack().catch(e => toast(e.message)); }
+  } else if (code === 'Escape') clearPreview();
+});
+document.addEventListener('mouseup', event => { if (event.button === 3 && !currentPlayer && !preparingSource) { event.preventDefault(); goBack().catch(e => toast(e.message)); } });
 function cancelStreamRequest() { const key = activeStreamKey; activeStreamKey = null; if (key) call('streamsCancel', { key }).catch(() => {}); }
 const navItems = ['Home', 'Discover', 'Search', 'Library', 'Addons', 'Settings'];
 function el(tag, attrs = {}, ...children) {
@@ -13,7 +43,7 @@ function el(tag, attrs = {}, ...children) {
     else if (key === 'value') node.value = value;
     else if (value !== undefined && value !== false) node.setAttribute(key, value === true ? '' : value);
   }
-  children.flat().forEach(child => { if (child !== undefined && child !== null && child !== false) node.append(child instanceof Node ? child : document.createTextNode(String(child))); });
+  children.flat(Infinity).forEach(child => { if (child instanceof Node) node.append(child); else if (typeof child === 'string' || (typeof child === 'number' && Number.isFinite(child))) node.append(document.createTextNode(String(child))); });
   return node;
 }
 const button = (label, action, cls = 'button') => el('button', { className: cls, onclick: async () => { try { await action(); } catch (e) { toast(e.message); } } }, label);
@@ -28,10 +58,15 @@ function icon(name) { const svg = document.createElementNS('http://www.w3.org/20
 function iconButton(label, name, action) { const node = button(icon(name), action, 'icon-button'); node.setAttribute('aria-label', label); node.title = label; return node; }
 function updateIcon(node, label, name) { node.replaceChildren(icon(name)); node.setAttribute('aria-label', label); node.title = label; }
 const clock = NymoraUI.clock;
-function heading(title, caption) { return el('header', { className: 'page-heading' }, el('div', {}, el('p', { className: 'eyebrow' }, 'YOUR SCREEN. YOUR SOURCES.'), el('h1', {}, title), caption && el('p', { className: 'muted' }, caption))); }
+function heading(title, caption) { return el('header', { className: 'page-heading' }, el('div', {}, el('h1', {}, title), caption && el('p', { className: 'muted' }, caption))); }
 function empty(title, message, action) { return el('div', { className: 'empty' }, el('span', { className: 'empty-symbol' }, '◎'), el('h2', {}, title), el('p', {}, message), action); }
 function errorBlock(message, retry) { return el('div', { className: 'error', role: 'alert' }, el('p', {}, message), retry && button('Retry', retry, 'button small')); }
 function addonWarning(message) { return el('p', { className: 'addon-warning', role: 'status' }, message); }
+function providerNotices(messages, search = false) {
+  const unique = [...new Set(messages.filter(m => typeof m === 'string' && m.trim()))];
+  if (!unique.length) return null;
+  return el('details', { className: 'provider-notices' }, el('summary', {}, search ? 'Some providers are temporarily unavailable. Details ›' : `Source notices (${unique.length})`), unique.map(addonWarning));
+}
 function applyAppearance() {
   document.body.dataset.posterStyle = state.settings.posterStyle || 'portrait';
   document.body.dataset.interfaceStyle = state.settings.interfaceStyle || 'classic';
@@ -56,23 +91,50 @@ async function showIntro(preview = false) {
   document.body.append(intro);
   await new Promise(resolve => setTimeout(resolve, reduced ? 200 : 1400)); intro.remove();
 }
+globalThis.showIntro = showIntro;
 const copyP2PDiagnostics = () => call('copyP2PDiagnostics').then(() => toast('Redacted P2P diagnostics copied.'));
 function card(meta, progress) {
   const landscape = state.settings.posterStyle === 'landscape', wide = safeImage(meta.background || meta.backdrop), image = landscape ? wide || safeImage(meta.poster) : safeImage(meta.poster) || wide;
   const art = el('div', { className: `poster ${landscape && !wide ? 'portrait-in-wide' : !landscape && !safeImage(meta.poster) ? 'wide-in-portrait' : ''}` }, image ? el('img', { src: image, alt: '', loading: 'lazy', onerror: event => event.target.remove() }) : el('span', { className: 'poster-letter' }, (meta.name || '?').slice(0, 1)), progress?.watched && el('span', { className: 'badge' }, 'Watched'));
   if (progress?.duration) art.append(el('div', { className: 'progress-bar' }, el('i', { style: `width:${Math.min(100, 100 * progress.position / progress.duration)}%` })));
   const node = el('button', { className: 'card', onclick: () => { clearPreview(); openDetails(meta, progress).catch(e => toast(e.message)); }, 'aria-label': `Open ${meta.name}` }, art, el('strong', {}, meta.name), el('span', { className: 'card-info' }, progress?.episodeName || [meta.releaseInfo || meta.year, NymoraUI.runtime(meta.runtime), meta.type].filter(Boolean).join(' · ')), progress && !progress.watched && el('span', { className: 'muted' }, `${clock(progress.position)} / ${clock(progress.duration)}`));
-  node.addEventListener('pointerenter', () => { clearPreview(); previewTimer = setTimeout(() => showPreview(node, meta, progress), 850); });
-  node.addEventListener('pointerleave', clearPreview); node.addEventListener('blur', clearPreview); return node;
+  const schedule = () => { clearPreview(); previewTimer = setTimeout(() => showPreview(node, meta, progress), 700); };
+  node.addEventListener('pointerenter', schedule); node.addEventListener('focus', schedule);
+  node.addEventListener('pointerleave', () => { clearTimeout(previewTimer); previewTimer = setTimeout(clearPreview, 250); });
+  node.addEventListener('blur', e => { if (!preview?.contains(e.relatedTarget)) clearPreview(); });
+  node.addEventListener('keydown', e => { if (e.key === 'Tab' && !e.shiftKey && previewCard === node && preview) { e.preventDefault(); preview.querySelector('button')?.focus(); } });
+  return node;
 }
 let previewTimer, preview, previewCard;
-function clearPreview() { clearTimeout(previewTimer); preview?.remove(); previewCard?.removeAttribute('aria-describedby'); preview = null; previewCard = null; }
+function clearPreview() { clearTimeout(previewTimer); const old = preview, card = previewCard; preview = null; previewCard = null; card?.removeAttribute('aria-describedby'); old?.remove(); }
+window.addEventListener('scroll', clearPreview, true); window.addEventListener('resize', clearPreview);
 function showPreview(node, meta, progress) {
   if (!node.isConnected || currentPlayer) return;
   const bounds = node.getBoundingClientRect(); previewCard = node;
-  preview = el('aside', { className: 'hover-preview', id: 'title-preview', role: 'tooltip' }, el('strong', {}, meta.name), el('p', { className: 'metadata-line' }, [meta.releaseInfo || meta.year, meta.imdbRating && `IMDb ${meta.imdbRating}`, NymoraUI.runtime(meta.runtime)].filter(Boolean).join(' · ')), meta.description && el('p', { className: 'preview-description' }, meta.description), meta.genres?.length && el('p', { className: 'tags' }, meta.genres.join(' · ')), progress?.duration > 0 && el('p', { className: 'muted' }, `${Math.round(progress.position / progress.duration * 100)}% watched`));
+  const saved = () => state.library.some(m => m.id === meta.id && m.type === meta.type);
+  const progressKey = `${meta.type}:${progress?.id || meta.id}`;
+  const watched = () => !!state.progress[progressKey]?.watched;
+  const watchlist = button(saved() ? 'Remove from Watchlist' : 'Add to Watchlist', async () => { state = await call('library', meta); watchlist.textContent = saved() ? 'Remove from Watchlist' : 'Add to Watchlist'; toast(saved() ? 'Added to Watchlist' : 'Removed from Watchlist'); }, 'button subtle small');
+  const mark = button(watched() ? 'Mark Unwatched' : 'Mark Watched', async () => { state = await call('watched', { ...meta, id: progress?.id || meta.id, mediaId: meta.id, watched: !watched() }); mark.textContent = watched() ? 'Mark Unwatched' : 'Mark Watched'; }, 'button subtle small');
+  preview = el('aside', { className: 'hover-preview', id: 'title-preview', role: 'dialog', 'aria-label': `${meta.name} preview` }, el('strong', {}, meta.name), el('p', { className: 'metadata-line' }, [meta.releaseInfo || meta.year, meta.imdbRating && `IMDb ${meta.imdbRating}`, NymoraUI.runtime(meta.runtime)].filter(Boolean).join(' · ')), meta.description && el('p', { className: 'preview-description' }, meta.description), meta.genres?.length && el('p', { className: 'tags' }, meta.genres.join(' · ')), progress?.duration > 0 && el('p', { className: 'muted' }, `${Math.round(progress.position / progress.duration * 100)}% watched`), el('div', { className: 'preview-actions' }, button('▶ Open / Play', () => { clearPreview(); return openDetails(meta, progress); }, 'button primary small'), watchlist, mark));
   node.setAttribute('aria-describedby', 'title-preview'); document.body.append(preview);
-  preview.style.left = `${Math.max(12, Math.min(innerWidth - 332, bounds.left))}px`; preview.style.top = `${Math.max(40, Math.min(innerHeight - preview.offsetHeight - 16, bounds.top + 40))}px`;
+  const width = preview.offsetWidth, height = preview.offsetHeight, gap = 14, margin = 12;
+  const centered = Math.max(margin, Math.min(innerWidth - width - margin, bounds.left + (bounds.width - width) / 2));
+  const sideY = Math.max(40, Math.min(innerHeight - height - margin, bounds.top));
+  const positions = [{ x: centered, y: bounds.top - height - gap }, { x: bounds.right + gap, y: sideY }, { x: bounds.left - width - gap, y: sideY }, { x: centered, y: bounds.bottom + gap }];
+  let position = positions.find(p => p.x >= margin && p.y >= 40 && p.x + width <= innerWidth - margin && p.y + height <= innerHeight - margin);
+  if (!position) {
+    // Small windows: shrink within the largest free region, never over the card.
+    const above = bounds.top - gap - 40, below = innerHeight - bounds.bottom - gap - margin;
+    const right = innerWidth - bounds.right - gap - margin, left = bounds.left - gap - margin;
+    if (Math.max(right, left) >= 180) { const onRight = right >= left; preview.style.width = `${Math.min(width, onRight ? right : left)}px`; position = { x: onRight ? bounds.right + gap : bounds.left - gap - preview.offsetWidth, y: 40 }; preview.style.maxHeight = `${innerHeight - 52}px`; }
+    else { const onTop = above >= below, available = Math.max(0, onTop ? above : below); if (available < 80) { clearPreview(); return; } preview.style.maxHeight = `${available}px`; position = { x: centered, y: onTop ? 40 : bounds.bottom + gap }; }
+  }
+  preview.style.left = `${position.x}px`; preview.style.top = `${position.y}px`;
+  preview.addEventListener('pointerenter', () => clearTimeout(previewTimer));
+  preview.addEventListener('pointerleave', () => { previewTimer = setTimeout(clearPreview, 250); });
+  preview.addEventListener('focusout', e => { if (!preview?.contains(e.relatedTarget) && e.relatedTarget !== node) clearPreview(); });
+  preview.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); clearPreview(); node.focus(); } else if (e.key === 'Tab' && e.shiftKey && e.target === preview.querySelector('button')) { e.preventDefault(); node.focus(); } });
 }
 function continueCards(entries) {
   return el('div', { className: 'cards' }, entries.map(progress => {
@@ -82,7 +144,7 @@ function continueCards(entries) {
       const key = `${progress.type}:${progress.id}`, parent = wrapper.parentNode, next = wrapper.nextSibling, token = generation;
       state = await call('dismissContinuing', { key }); wrapper.remove();
       toast('Removed from Continue Watching', async () => { state = await call('dismissContinuing', { key, undo: true }); if (page === 'Home' && generation === token && parent.isConnected) parent.insertBefore(wrapper, next?.parentNode === parent ? next : null); toast('Restored to Continue Watching'); });
-    }); remove.classList.add('continue-remove'); wrapper.append(remove); return wrapper;
+    }); remove.title = 'Remove from Continue Watching'; remove.classList.add('continue-remove'); wrapper.append(remove); return wrapper;
   }));
 }
 function cards(metas, progress) { return el('div', { className: 'cards' }, metas.map((m, i) => card(m, progress?.[i]))); }
@@ -92,12 +154,16 @@ function shell() {
   root.replaceChildren(el('aside', { className: 'sidebar' }, el('div', { className: 'wordmark' }, el('img', { src: 'logo.svg', alt: 'Nymora', width: 40 }), el('span', {}, 'NYMORA')), el('nav', { 'aria-label': 'Main navigation' }, navItems.map((item, index) => { const node = button(item, () => navigate(item), `nav-item ${page === item ? 'active' : ''} nav-${index}`); node.setAttribute('aria-label', item); return node; })), null), content);
   return content;
 }
-async function navigate(target) {
+async function navigate(destination, replace = false) {
+  const next = typeof destination === 'string' ? { kind: destination } : destination;
+  const target = next.kind;
+  rememberRoute(next, replace);
   cancelStreamRequest();
   if (currentPlayer) await currentPlayer.close();
   page = target; const token = ++generation; const content = shell();
   if (target === 'Home') content.classList.add('home-page');
   content.append(heading(target, target === 'Home' ? 'A quiet place for everything you want to watch.' : undefined));
+  backControl(content, next.category ? 'Settings' : 'Back');
   try {
     state = await call('state');
     applyAppearance();
@@ -146,6 +212,7 @@ async function showDiscover(content, token) {
     try {
       const extra = {};
       for (const [name, node] of values) { if (node.value) extra[name] = node.value; }
+      if (reset) { rememberRoute({ ...route, catalogIndex: select.value, filters: extra }); content.querySelector('.page-back')?.remove(); backControl(content); }
       const missing = extras(catalog).find(e => e.isRequired && e.name !== 'skip' && !extra[e.name]);
       if (missing) { results.replaceChildren(empty('Choose a filter', `This catalog requires ${missing.name}.`)); return; }
       if (extras(catalog).some(e => e.name === 'skip')) extra.skip = offset;
@@ -162,14 +229,16 @@ async function showDiscover(content, token) {
     catalog = catalogs[Number(select.value)]; offset = 0; values = []; filters.replaceChildren();
     extras(catalog).filter(e => e.name !== 'skip').forEach(e => {
       const field = e.options ? el('select', { 'aria-label': e.name }, !e.isRequired && el('option', { value: '' }, 'All'), e.options.map(v => el('option', { value: v }, v))) : el('input', { 'aria-label': e.name, placeholder: e.name });
+      field.value = route.filters?.[e.name] || (e.options && e.isRequired ? e.options[0] : '');
       field.addEventListener('change', () => load(true)); values.push([e.name, field]); filters.append(el('label', {}, e.name, field));
     });
     load(true);
   }
-  select.addEventListener('change', choose);
+  select.value = route.catalogIndex || '0'; route.catalogIndex = select.value; route.filters ||= {};
+  select.addEventListener('change', () => { rememberRoute({ ...route, catalogIndex: select.value, filters: {} }); choose(); });
   content.append(el('div', { className: 'filter-bar' }, el('label', {}, 'Catalog', select), filters), results, loadMore); choose();
 }
-function showSearch(content) {
+async function showSearch(content) {
   const field = el('input', { type: 'search', placeholder: 'Search your installed addon catalogs', 'aria-label': 'Search titles', maxlength: 500 });
   const results = el('div'); let requestId = 0;
   const recent = el('section', { className: 'recent-searches' });
@@ -181,22 +250,25 @@ function showSearch(content) {
   }
   const run = async () => {
     const term = field.value.trim(), id = ++requestId;
+    route.searchTerm = term;
     if (!term) { results.replaceChildren(); renderRecent(); return; }
     state = await call('recentSearch', { term }); renderRecent(); results.replaceChildren(el('p', { className: 'muted' }, 'Searching…'));
     try {
       const result = await call('search', { term }); if (id !== requestId || page !== 'Search') return;
       results.replaceChildren(el('h2', {}, `Results for “${term}”`));
-      result.errors.forEach(error => results.append(errorBlock(error)));
+      results.append(providerNotices(result.errors, true) || document.createTextNode(''));
       results.append(result.items.length ? cards(result.items) : empty(result.supported ? 'No matches' : 'No searchable catalogs', result.supported ? 'Try another title.' : 'Install an addon that declares a search catalog.'));
     } catch (e) { if (id === requestId) results.replaceChildren(errorBlock(e.message, run)); }
   };
   field.addEventListener('input', () => { renderRecent(); if (!field.value.trim()) { ++requestId; results.replaceChildren(); } });
   content.append(el('form', { className: 'search-form', onsubmit: e => { e.preventDefault(); run().catch(e => toast(e.message)); } }, field, el('button', { className: 'button primary', type: 'submit' }, 'Search')), recent, results); renderRecent(); field.focus();
+  if (route.searchTerm) { field.value = route.searchTerm; await run(); }
 }
 function showLibrary(content) {
   const list = el('div'), tabs = el('div', { className: 'library-tabs', role: 'tablist', 'aria-label': 'Library sections' });
   const entries = Object.values(state.progress).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   function render(tab) {
+    route.libraryTab = tab;
     tabs.querySelectorAll('button').forEach(node => { const active = node.textContent === tab; node.setAttribute('aria-selected', String(active)); node.classList.toggle('primary', active); });
     list.replaceChildren();
     if (tab !== 'WATCHLIST') {
@@ -210,7 +282,7 @@ function showLibrary(content) {
     }
   }
   for (const tab of ['WATCHLIST', 'WATCHED', 'IN PROGRESS']) { const node = button(tab, () => render(tab), 'button subtle'); node.setAttribute('role', 'tab'); tabs.append(node); }
-  content.append(tabs, list); render('WATCHLIST');
+  content.append(tabs, list); render(route.libraryTab || 'WATCHLIST');
 }
 function showAddons(content) {
   const input = el('input', { type: 'url', placeholder: 'https://your-addon.example/manifest.json', 'aria-label': 'Addon manifest URL' });
@@ -232,22 +304,42 @@ function showAddons(content) {
   }
   content.append(installed, el('section', { className: 'recommended' }, el('h2', {}, 'Recommended / Compatible'), el('article', { className: 'addon-card' }, el('div', { className: 'addon-identity' }, el('span', { className: 'addon-avatar' }, 'C'), el('div', {}, el('h3', {}, 'Cinemeta'), el('span', { className: 'muted' }, 'Compatible provider · Independently operated by Stremio'))), el('p', {}, 'Movie and series catalogs and metadata. No playable media is bundled. Installing enables requests to this third-party service.'), el('div', { className: 'capabilities' }, el('span', {}, 'catalog'), el('span', {}, 'meta')), el('div', { className: 'actions' }, state.addons.some(a => a.manifest.id === 'com.linvo.cinemeta') ? el('span', { className: 'tags' }, 'Installed') : button('Install Cinemeta', async () => { await call('install', { url: 'https://v3-cinemeta.strem.io/manifest.json' }); await navigate('Addons'); }, 'button primary small'), button('Provider terms', () => call('external', { url: 'https://www.stremio.com/tos' }), 'button subtle small')))), form);
 }
-async function showSettings(content) { return NymoraSettings.show(content, undefined, catalogSettings); }
+async function showSettings(content) { return NymoraSettings.show(content, route.category, catalogSettings, category => navigate({ kind: 'Settings', category })); }
 async function catalogSettings(content) {
   const catalogs = await call('catalogs'), panel = el('section', { className: 'panel catalog-settings', 'aria-label': 'Home / Catalogs' });
   content.append(panel);
   function render() {
     const ordered = NymoraUI.orderedCatalogs(catalogs, state.settings);
-    panel.replaceChildren(el('h2', {}, 'Home / Catalogs'), el('p', { className: 'muted' }, 'Continue Watching stays first. Catalog order changes only your Home layout.'), !ordered.length && el('p', { className: 'muted' }, 'Installed catalog rows will appear here.'));
+    panel.replaceChildren(el('h2', {}, 'Home / Catalogs'), el('p', { className: 'muted' }, 'Continue Watching stays first. Catalog order changes only your Home layout.'));
+    if (!ordered.length) panel.append(el('p', { className: 'muted' }, 'Installed catalog rows will appear here.'));
     ordered.forEach((catalog, index) => {
       const key = NymoraUI.catalogKey(catalog), hidden = (state.settings.hiddenCatalogs || []).includes(key);
       const move = async offset => { const keys = ordered.map(NymoraUI.catalogKey); [keys[index], keys[index + offset]] = [keys[index + offset], keys[index]]; state = await call('settings', { homeCatalogOrder: keys }); render(); };
       const up = button('Move Up', () => move(-1), 'button subtle small'); up.disabled = index === 0;
       const down = button('Move Down', () => move(1), 'button subtle small'); down.disabled = index === ordered.length - 1;
       const row = el('div', { className: 'catalog-setting-row', 'data-catalog-key': key }, el('div', {}, el('strong', {}, `${catalog.name || catalog.id} · ${catalog.type}`), el('small', { className: 'muted' }, catalog.addonName, extras(catalog).some(e => e.isRequired) && ' · Discover filter required')), el('div', { className: 'actions' }, up, down, button(hidden ? 'Show row' : 'Hide row', async () => { const hiddenCatalogs = state.settings.hiddenCatalogs || []; state = await call('settings', { hiddenCatalogs: hidden ? hiddenCatalogs.filter(k => k !== key) : [...hiddenCatalogs, key] }); render(); }, 'button subtle small')));
-      row.prepend(el('span', { className: 'catalog-grip', draggable: true, title: 'Drag to reorder; Move Up and Move Down also work', 'aria-hidden': 'true', ondragstart: e => { e.dataTransfer.setData('application/x-nymora-catalog', key); e.dataTransfer.effectAllowed = 'move'; } }, '⋮⋮'));
-      row.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
-      row.addEventListener('drop', async e => { e.preventDefault(); const dragged = e.dataTransfer.getData('application/x-nymora-catalog'), keys = ordered.map(NymoraUI.catalogKey), from = keys.indexOf(dragged); if (from < 0 || from === index) return; keys.splice(from, 1); keys.splice(index, 0, dragged); try { state = await call('settings', { homeCatalogOrder: keys }); render(); } catch (error) { toast(error.message); } });
+      const grip = el('button', { className: 'catalog-grip', type: 'button', title: 'Drag to reorder; Move Up and Move Down also work', 'aria-label': `Reorder ${catalog.name || catalog.id}` }, '⠿');
+      let drag, dropKeys;
+      const clearDrop = () => panel.querySelectorAll('.drop-before,.drop-after').forEach(n => n.classList.remove('drop-before', 'drop-after'));
+      const finishDrag = async commit => {
+        if (!drag) return; drag = null; row.classList.remove('dragging'); clearDrop();
+        const keys = dropKeys; dropKeys = null;
+        if (commit && keys) { try { state = await call('settings', { homeCatalogOrder: keys }); render(); } catch (e) { toast(e.message); } }
+      };
+      grip.addEventListener('pointerdown', e => { if (e.button !== 0) return; e.preventDefault(); grip.focus(); grip.setPointerCapture(e.pointerId); drag = { y: e.clientY }; });
+      grip.addEventListener('pointermove', e => {
+        if (!drag || Math.abs(e.clientY - drag.y) < 5 && !dropKeys) return;
+        row.classList.add('dragging'); clearDrop();
+        const others = [...panel.querySelectorAll('.catalog-setting-row')].filter(n => n !== row);
+        if (!others.length) return;
+        const target = others.find(n => e.clientY < n.getBoundingClientRect().bottom) || others.at(-1), bounds = target.getBoundingClientRect();
+        const after = e.clientY >= bounds.top + bounds.height / 2; target.classList.add(after ? 'drop-after' : 'drop-before');
+        dropKeys = ordered.map(NymoraUI.catalogKey).filter(k => k !== key);
+        dropKeys.splice(dropKeys.indexOf(target.dataset.catalogKey) + (after ? 1 : 0), 0, key);
+        if (e.clientY > innerHeight - 40) scrollBy(0, 12); else if (e.clientY < 70) scrollBy(0, -12);
+      });
+      grip.addEventListener('pointerup', () => finishDrag(true)); grip.addEventListener('pointercancel', () => finishDrag(false)); grip.addEventListener('lostpointercapture', () => finishDrag(false));
+      row.prepend(grip);
       panel.append(row);
     });
     if (ordered.length) panel.append(button('Reset layout', async () => { state = await call('settings', { homeCatalogOrder: [], hiddenCatalogs: [] }); render(); toast('Home layout reset.'); }, 'button small'));
@@ -265,7 +357,7 @@ function renderHero(target, meta) {
   target.replaceChildren(backdrop && el('img', { className: 'hero-backdrop', src: backdrop, alt: '', onerror: e => e.target.remove() }), el('div', { className: 'hero-content' }, image ? el('img', { className: 'detail-poster', src: image, alt: '', loading: 'lazy', onerror: e => e.target.remove() }) : el('div', { className: 'detail-poster poster-fallback' }, (meta.name || '?').slice(0, 1)), el('div', { className: 'hero-copy' }, el('p', { className: 'eyebrow' }, meta.type), el('h1', {}, meta.name), el('p', { className: 'metadata-line' }, [meta.releaseInfo || meta.year, NymoraUI.runtime(meta.runtime), meta.imdbRating && `IMDb ${meta.imdbRating}`].filter(Boolean).join(' · ')), meta.genres?.length && el('p', { className: 'tags' }, meta.genres.join(' · ')), meta.description && synopsis(meta.description))));
 }
 function episodeFacts(video, progress) { return [video.released && String(video.released).slice(0, 10), NymoraUI.runtime(video.runtime), (video.imdbRating || video.rating) && `Rating ${video.imdbRating || video.rating}`, progress?.watched ? 'Watched' : progress?.position ? `Continue at ${clock(progress.position)}` : ''].filter(Boolean).join(' · '); }
-function renderCast(target, meta, back) {
+function renderCast(target, meta) {
   const people = meta.cast || [];
   target.replaceChildren(); if (!Array.isArray(people) || !people.length) return;
   const row = el('div', { className: 'cast-row' }); target.append(el('h2', {}, 'Cast'), row);
@@ -274,13 +366,14 @@ function renderCast(target, meta, back) {
     if (!person?.name) continue;
     const image = safeImage(person.portrait || person.photo || person.image);
     const contents = [el('div', { className: 'cast-portrait' }, image ? el('img', { src: image, alt: '', loading: 'lazy', onerror: e => e.target.remove() }) : el('span', {}, person.name.split(' ').map(part => part.slice(0, 1)).slice(0, 2).join(''))), el('strong', {}, person.name), person.character && el('span', { className: 'muted' }, person.character)];
-    const item = person.id && typeof person.id === 'string' ? button(contents, () => openPerson(person, back), 'cast-card') : el('div', { className: 'cast-card' }, ...contents);
+    const item = person.id && typeof person.id === 'string' ? button(contents, () => openPerson(person), 'cast-card') : el('div', { className: 'cast-card' }, ...contents);
     row.append(item);
   }
 }
-async function openPerson(person, back) {
+async function openPerson(person, replace = false) {
+  rememberRoute({ kind: 'Person', person }, replace);
   cancelStreamRequest(); page = 'Person'; const token = ++generation, content = shell();
-  content.append(button('Back to title', back, 'button subtle small'));
+  backControl(content, 'Back to title');
   const display = el('div'); content.append(display);
   function render(value) {
     const image = safeImage(value.portrait || value.photo || value.image);
@@ -293,7 +386,8 @@ async function openPerson(person, back) {
   try { const result = await call('meta', { type: 'person', id: person.id }); if (token === generation) render(NymoraUI.mergeMetadata({ ...person, type: 'person' }, result.items)); } catch {}
 }
 function languageName(code) { return ({ eng: 'English', en: 'English', ara: 'Arabic · العربية', ar: 'Arabic · العربية', spa: 'Spanish', fra: 'French', deu: 'German', jpn: 'Japanese', por: 'Portuguese', rus: 'Russian', hin: 'Hindi', zho: 'Chinese' })[code] || code; }
-async function openDetails(initial, resume) {
+async function openDetails(initial, resume, restored = {}, replace = false) {
+  rememberRoute({ kind: 'Details', initial, resume, ...restored }, replace);
   cancelStreamRequest(); if (currentPlayer) await currentPlayer.close();
   page = 'Details'; const token = ++generation, content = shell();
   content.classList.add('detail-page'); content.append(el('p', { className: 'muted', role: 'status' }, 'Loading title…'));
@@ -309,11 +403,18 @@ async function openDetails(initial, resume) {
   if (initial.type !== 'movie') mergeMetadata(await metadataRequest);
   if (token !== generation) return;
   content.replaceChildren();
-  const save = button(state.library.some(m => m.id === meta.id && m.type === meta.type) ? 'Remove from Library' : 'Save to Library', async () => { state = await call('library', meta); save.textContent = state.library.some(m => m.id === meta.id && m.type === meta.type) ? 'Remove from Library' : 'Save to Library'; });
+  backControl(content);
+  const saved = () => state.library.some(m => m.id === meta.id && m.type === meta.type);
+  const save = button(saved() ? 'Remove from Watchlist' : 'Add to Watchlist', async () => { state = await call('library', meta); save.textContent = saved() ? 'Remove from Watchlist' : 'Add to Watchlist'; });
   const details = el('section', { className: 'details hero' }), cast = el('section', { className: 'cast-section' }), additional = el('section', { className: 'additional-metadata' });
   const sources = el('section', { className: 'sources' });
+  const watch = button('▶ Watch / Sources', () => { (meta.type === 'series' ? content.querySelector('.episode-section') : sources)?.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' }); }, 'button primary');
+  const marked = () => !!state.progress[`${meta.type}:${meta.id}`]?.watched;
+  const mark = button(marked() ? 'Mark unwatched' : 'Mark watched', async () => { state = await call('watched', { type: meta.type, id: meta.id, mediaId: meta.id, name: meta.name, poster: meta.poster, watched: !marked() }); mark.textContent = marked() ? 'Mark unwatched' : 'Mark watched'; }, 'button subtle');
+  const titleActions = el('div', { className: 'title-actions' }, watch, save, mark);
   const renderMetadata = () => {
-    renderHero(details, meta); renderCast(cast, meta, () => openDetails(meta, resume));
+    renderHero(details, meta); renderCast(cast, meta);
+    const copy = details.querySelector('.hero-copy'); copy.insertBefore(titleActions, copy.querySelector('.synopsis'));
     additional.replaceChildren(...(meta.director?.length ? [el('p', { className: 'muted' }, 'Directed by ' + meta.director.map(p => typeof p === 'string' ? p : p.name).filter(Boolean).join(', '))] : []));
     problems.forEach(p => additional.append(addonWarning(p)));
   };
@@ -329,7 +430,8 @@ async function openDetails(initial, resume) {
     sources.replaceChildren(el('h2', {}, video.name ? `Sources · ${video.name}` : 'Watch / Sources'), loading);
     const progress = state.progress[`${meta.type}:${video.id}`];
     let resumePosition = progress && !progress.watched ? progress.position : 0;
-    if (resumePosition > 0) {
+    if (state.settings.resumePlayback === 'restart') resumePosition = 0;
+    if (resumePosition > 0 && state.settings.resumePlayback === 'ask') {
       const resumeToggle = el('input', { type: 'checkbox', checked: true, 'aria-label': 'Resume saved progress', onchange: e => { resumePosition = e.target.checked ? progress.position : 0; } });
       sources.append(el('label', { className: 'resume-choice' }, resumeToggle, `Resume from ${clock(progress.position)}`));
     }
@@ -352,10 +454,11 @@ async function openDetails(initial, resume) {
           for (const stream of response.items.slice(rendered)) {
             const hints = stream.behaviorHints || {};
             const bytes = stream.videoSize ?? hints.videoSize;
-            cardsContainer.append(button(el('div', {}, el('span', { className: 'source-label' }, stream.addonName), el('h3', {}, stream.name || stream.title || 'Stream'), stream.name && stream.title && el('p', {}, stream.title), el('p', { className: 'muted' }, [stream.description, stream.filename || hints.filename, bytes && `${Math.round(bytes / 1048576)} MB`, stream.language, stream.quality, Number.isInteger(stream.seeders) && stream.seeders >= 0 ? `${stream.seeders} seeders (addon-reported)` : ''].filter(Boolean).join(' · ')), stream.nymoraP2P && el('p', { className: 'p2p-label' }, state.p2pNoticeAccepted ? 'BitTorrent / P2P' : 'BitTorrent / P2P · acknowledgement required')), () => startPlayer(meta, video, stream, resumePosition), 'source'));
+            const sourceCard = button(el('div', {}, el('span', { className: 'source-label' }, stream.addonName), el('h3', {}, stream.name || stream.title || 'Stream'), stream.name && stream.title && el('p', {}, stream.title), el('p', { className: 'muted' }, [stream.description, stream.filename || hints.filename, bytes && `${Math.round(bytes / 1048576)} MB`, stream.language, stream.quality, Number.isInteger(stream.seeders) && stream.seeders >= 0 ? `${stream.seeders} seeders (addon-reported)` : ''].filter(Boolean).join(' · ')), stream.nymoraP2P && el('p', { className: 'p2p-label' }, state.p2pNoticeAccepted ? 'BitTorrent / P2P' : 'BitTorrent / P2P · acknowledgement required')), () => startPlayer(meta, video, stream, resumePosition), 'source');
+            sourceCard.dataset.provider = stream.addonName || ''; sourceCard.dataset.sourceName = stream.name || ''; sourceCard.dataset.p2p = String(!!stream.nymoraP2P); cardsContainer.append(sourceCard);
           }
           rendered = response.items.length;
-          notices.replaceChildren(...[...response.notices, ...response.errors].map(addonWarning));
+          notices.replaceChildren(providerNotices([...response.notices, ...response.errors]) || document.createTextNode(''));
           if (response.errors.length) notices.append(button('Copy Addon Diagnostics', () => call('copyAddonDiagnostics', { key }).then(() => toast('Redacted addon diagnostics copied.')), 'button subtle small'));
           loading.textContent = response.done ? '' : `Waiting for ${response.pending} addon${response.pending === 1 ? '' : 's'}…`;
         }
@@ -377,8 +480,10 @@ async function openDetails(initial, resume) {
       const episodes = el('div', { className: 'episodes' }), paging = el('div', { className: 'episode-pagination' });
       const episodeSection = el('section', { className: 'episode-section' }, el('div', { className: 'section-heading' }, el('h2', {}, 'Episodes'), season), episodes, paging);
       const episodeView = el('section', { className: 'episode-view', hidden: true });
-      let episodePage = 0;
+      let episodePage = restored.episodePage || 0;
+      if (restored.season !== undefined) season.value = String(restored.season);
       function showEpisodes() {
+        route.season = season.value; route.episodePage = episodePage;
         const selected = videos.filter(v => String(v.season ?? 0) === season.value).sort((a, b) => (a.episode || 0) - (b.episode || 0));
         const count = Math.ceil(selected.length / 24); episodePage = Math.max(0, Math.min(episodePage, count - 1));
         episodes.replaceChildren(...selected.slice(episodePage * 24, episodePage * 24 + 24).map(v => {
@@ -396,24 +501,28 @@ async function openDetails(initial, resume) {
           paging.append(previous, el('span', { className: 'muted' }, `${selected.length} episodes`), jump, next);
         }
       }
-      function backToEpisodes() { cancelStreamRequest(); ++sourceGeneration; episodeView.hidden = true; episodeSection.hidden = false; details.hidden = false; cast.hidden = false; additional.hidden = false; showEpisodes(); content.scrollIntoView({ block: 'start' }); season.focus(); }
-      async function openEpisode(video) {
+      function backToEpisodes() { return goBack(); }
+      async function openEpisode(video, replace = false) {
+        rememberRoute({ ...route, episodeId: video.id }, replace);
+        route.episodeId = video.id;
+        content.querySelector('.page-back')?.remove();
         details.hidden = true; cast.hidden = true; additional.hidden = true; episodeSection.hidden = true; episodeView.hidden = false;
         const image = safeImage(video.thumbnail || video.image);
         const episodeTitle = video.title || video.name || video.id;
-        episodeView.replaceChildren(button('Back to Episodes', backToEpisodes, 'button subtle small'), el('div', { className: 'episode-hero' }, el('p', { className: 'eyebrow' }, meta.name), el('p', { className: 'muted' }, [video.season !== undefined && `Season ${video.season}`, video.episode !== undefined && `Episode ${video.episode}`].filter(Boolean).join(' · ')), el('h1', {}, episodeTitle), image && el('div', { className: `episode-image ${state.settings.blurEpisodeThumbnails ? 'spoiler-blur' : ''}` }, el('img', { src: image, alt: '', loading: 'lazy' })), el('p', { className: 'muted' }, episodeFacts(video, state.progress[`${meta.type}:${video.id}`])), video.overview || video.description ? synopsis(video.overview || video.description) : null), sources);
+        const back = button('← Back to Episodes', backToEpisodes, 'button subtle small page-back'); back.setAttribute('aria-label', 'Back to Episodes');
+        episodeView.replaceChildren(back, el('div', { className: 'episode-hero' }, el('p', { className: 'eyebrow' }, meta.name), el('p', { className: 'muted' }, [video.season !== undefined && `Season ${video.season}`, video.episode !== undefined && `Episode ${video.episode}`].filter(Boolean).join(' · ')), el('h1', {}, episodeTitle), image && el('div', { className: `episode-image ${state.settings.blurEpisodeThumbnails ? 'spoiler-blur' : ''}` }, el('img', { src: image, alt: '', loading: 'lazy' })), el('p', { className: 'muted' }, episodeFacts(video, state.progress[`${meta.type}:${video.id}`])), video.overview || video.description ? synopsis(video.overview || video.description) : null), sources);
         content.scrollIntoView({ block: 'start' }); episodeView.querySelector('button').focus();
         await loadStreams({ ...video, name: episodeTitle });
       }
       season.addEventListener('change', () => { episodePage = 0; showEpisodes(); });
-      const resumedVideo = resume && videos.find(v => v.id === resume.id);
+      const resumedVideo = !restored.kind && resume && videos.find(v => v.id === resume.id);
       if (resumedVideo) { season.value = String(resumedVideo.season ?? 0); episodePage = Math.floor(videos.filter(v => String(v.season ?? 0) === season.value).sort((a, b) => (a.episode || 0) - (b.episode || 0)).findIndex(v => v.id === resumedVideo.id) / 24); }
-      showEpisodes(); content.append(episodeSection, episodeView, cast, additional, el('div', { className: 'title-actions' }, save));
-      if (resumedVideo) await openEpisode(resumedVideo);
+      showEpisodes(); content.append(cast, additional, episodeSection, episodeView);
+      const selectedEpisode = restored.episodeId && videos.find(v => v.id === restored.episodeId);
+      if (selectedEpisode || resumedVideo) await openEpisode(selectedEpisode || resumedVideo, !!selectedEpisode);
     }
   } else {
-    const progress = state.progress[`${meta.type}:${meta.id}`];
-    content.append(sources, cast, additional, el('div', { className: 'title-actions' }, save, button(progress?.watched ? 'Mark unwatched' : 'Mark watched', async () => { state = await call('watched', { type: meta.type, id: meta.id, mediaId: meta.id, name: meta.name, poster: meta.poster, watched: !progress?.watched }); await openDetails(meta); }, 'button subtle')));
+    content.append(cast, additional, sources);
     await loadStreams({ id: initial.id });
   }
 }
@@ -439,12 +548,17 @@ async function startPlayer(meta, episode, stream, start) {
   document.body.style.overflow = 'hidden';
   const video = el('video', { playsinline: true, 'aria-label': 'Media player' });
   video.volume = state.settings.volume;
+  video.playbackRate = state.settings.defaultPlaybackSpeed;
+  video.defaultPlaybackRate = state.settings.defaultPlaybackSpeed;
+  const applyFit = fit => { video.style.objectFit = ({ fit: 'contain', fill: 'cover', original: 'scale-down' })[fit] || 'contain'; };
+  applyFit(state.settings.videoFit);
   const overlay = el('div', { className: 'subtitle-overlay', dir: 'auto', 'aria-live': 'off', 'data-testid': 'subtitle-overlay' });
   overlay.style.fontSize = `${state.settings.subtitleSize}px`;
   overlay.dataset.appearance = state.settings.subtitleAppearance;
   const playerError = el('div', { className: 'player-error', role: 'alert', hidden: true });
   const status = el('span', { className: 'player-status', role: 'status' }, 'Connecting…');
   const p2pInfo = el('span', { className: 'p2p-stats', 'data-testid': 'p2p-stats' });
+  p2pInfo.hidden = !state.settings.showP2PStats;
   const p2pTimer = source.p2p ? setInterval(async () => { try { const details = await call('playbackStatus'); p2pInfo.textContent = `${details.peers} peers · ↓ ${(details.downloadSpeed / 1048576).toFixed(1)} MB/s`; if (details.phase === 'error') failed(details.message); } catch {} }, 1000) : null;
   const togglePlay = () => video.paused ? video.play() : video.pause();
   const play = iconButton('Pause', 'pause', togglePlay);
@@ -460,12 +574,13 @@ async function startPlayer(meta, episode, stream, start) {
   const subtitleStatus = el('span', { className: 'muted' });
   const speedPill = el('div', { className: 'speed-pill', hidden: true, role: 'status', 'data-testid': 'speed-indicator' }, '2× Speed');
   const seekFeedback = el('div', { className: 'seek-feedback', hidden: true, role: 'status', 'data-testid': 'seek-feedback' });
-  const speed = el('select', { 'aria-label': 'Playback speed', onchange: () => { if (!spaceHeld) video.playbackRate = Number(speed.value); } }, [0.5, 1, 1.25, 1.5, 2].map(rate => el('option', { value: rate }, `${rate}×`))); speed.value = '1';
+  const speed = el('select', { 'aria-label': 'Playback speed', onchange: () => { if (!spaceHeld) video.playbackRate = Number(speed.value); } }, [0.5, .75, 1, 1.25, 1.5, 2].map(rate => el('option', { value: rate }, `${rate}×`))); speed.value = String(state.settings.defaultPlaybackSpeed);
+  const fit = el('select', { 'aria-label': 'Video Fit', onchange: async () => { applyFit(fit.value); state = await call('settings', { videoFit: fit.value }); } }, [['fit', 'Fit'], ['fill', 'Fill'], ['original', 'Original']].map(([value, label]) => el('option', { value }, label))); fit.value = state.settings.videoFit;
   const menus = [];
   function playerMenu(title, ...children) { const menu = el('section', { className: 'player-menu', hidden: true, 'aria-label': title }, el('h2', {}, title), ...children); menus.push(menu); return menu; }
   const subtitleMenu = playerMenu('Subtitles', el('label', {}, 'Track', subtitleSelect), el('div', { className: 'actions' }, button('Refresh subtitles', loadSubtitleResults, 'button small'), button('Local subtitle', async () => { const selected = await call('localSubtitle'); if (selected) { ++subtitleRequest; cues = selected.cues; subtitleSelect.value = ''; subtitleStatus.textContent = selected.name; renderSubtitles(); } }, 'button small')), el('label', {}, 'Delay (s)', delay), el('label', {}, 'Text size', size), subtitleStatus);
   const audioMenu = playerMenu('Audio', el('label', {}, 'Track', audioSelect));
-  const settingsMenu = playerMenu('Player settings', el('label', {}, 'Speed', speed), el('p', { className: 'muted' }, 'Space: play / pause · Hold Space: 2× speed\n← / →: seek · ↑ / ↓: volume · M: mute · F: fullscreen'));
+  const settingsMenu = playerMenu('Player settings', el('label', {}, 'Video Fit', fit), el('p', { className: 'muted' }, 'Fit keeps the whole image with aspect-ratio bars when needed. Fill crops the image. Original keeps source dimensions when they fit.'), el('label', {}, 'Speed', speed), el('p', { className: 'muted' }, 'Space: play / pause · Hold Space: 2× when enabled\n← / →: chosen skip interval · ↑ / ↓: volume · M: mute · F: fullscreen'));
   function closeMenus() { menus.forEach(menu => { menu.hidden = true; }); menuButtons.forEach(node => node.setAttribute('aria-expanded', 'false')); }
   const menuButtons = [];
   function menuButton(label, name, menu) { const node = iconButton(label, name, () => { const show = menu.hidden; closeMenus(); menu.hidden = !show; node.setAttribute('aria-expanded', String(show)); showControls(); }); node.setAttribute('aria-expanded', 'false'); menuButtons.push(node); return node; }
@@ -473,16 +588,17 @@ async function startPlayer(meta, episode, stream, start) {
   const layer = el('div', { className: 'player-layer', role: 'dialog', 'aria-modal': 'true', 'aria-label': `Playing ${meta.name}`, tabindex: -1 },
     el('div', { className: 'video-stage' }, video, overlay, playerError, speedPill, seekFeedback),
     el('header', { className: 'player-header' }, el('div', { className: 'player-title' }, el('strong', {}, meta.name), el('span', { className: 'muted' }, episode.name || ''), status, p2pInfo), iconButton('Exit player', 'close', close)),
-    el('div', { className: 'player-controls' }, el('div', { className: 'timeline' }, seek, time), el('div', { className: 'control-row' }, play, iconButton('Seek back 10 seconds', 'back', () => seekBy(-10)), iconButton('Seek forward 10 seconds', 'forward', () => seekBy(10)), mute, volume, el('div', { className: 'control-spacer' }), menuButton('Audio', 'audio', audioMenu), menuButton('Subtitles', 'subtitles', subtitleMenu), menuButton('Player settings', 'settings', settingsMenu), fullscreenButton)), ...menus);
+    el('div', { className: 'player-controls' }, el('div', { className: 'timeline' }, seek, time), el('div', { className: 'control-row' }, play, iconButton(`Seek back ${state.settings.skipInterval} seconds`, 'back', () => seekBy(-state.settings.skipInterval)), iconButton(`Seek forward ${state.settings.skipInterval} seconds`, 'forward', () => seekBy(state.settings.skipInterval)), mute, volume, el('div', { className: 'control-spacer' }), menuButton('Audio', 'audio', audioMenu), menuButton('Subtitles', 'subtitles', subtitleMenu), menuButton('Player settings', 'settings', settingsMenu), fullscreenButton)), ...menus);
   document.body.append(layer);
   root.inert = true; layer.focus();
-  let hideTimer, feedbackTimer, spaceTimer, clickTimer, spaceDown = false, spaceHeld = false, previousSpeed = 1, fullscreenEnabled = false, pointerControls = false, keyboardControls = false, controlsDragging = false;
+  let hideTimer, feedbackTimer, spaceTimer, clickTimer, spaceDown = false, spaceHeld = false, previousSpeed = 1, pointerControls = false, keyboardControls = false, controlsDragging = false;
   function showControls() {
     layer.classList.remove('controls-hidden'); clearTimeout(hideTimer);
+    if (!state.settings.controlsHideSeconds) return;
     hideTimer = setTimeout(() => {
       if (closed || video.paused || pointerControls || controlsDragging || menus.some(menu => !menu.hidden) || (keyboardControls && (layer.querySelector('.player-controls')?.contains(document.activeElement) || layer.querySelector('.player-header')?.contains(document.activeElement)))) return;
       layer.classList.add('controls-hidden');
-    }, 2500);
+    }, state.settings.controlsHideSeconds * 1000);
   }
   const controls = layer.querySelector('.player-controls');
   controls.addEventListener('pointerenter', () => { pointerControls = true; showControls(); });
@@ -491,17 +607,18 @@ async function startPlayer(meta, episode, stream, start) {
   function releaseControls() { controlsDragging = false; showControls(); }
   window.addEventListener('pointerup', releaseControls); window.addEventListener('pointercancel', releaseControls);
   layer.addEventListener('pointermove', () => { keyboardControls = false; showControls(); });
-  layer.addEventListener('keydown', event => { if (event.code === 'Tab') keyboardControls = true; });
+  layer.addEventListener('keydown', event => { if (shortcutCode(event) === 'Tab') keyboardControls = true; });
   layer.addEventListener('focusin', showControls); layer.addEventListener('focusout', showControls);
   video.addEventListener('click', event => { clearTimeout(clickTimer); if (event.detail < 2) clickTimer = setTimeout(() => { closeMenus(); Promise.resolve(togglePlay()).catch(e => toast(e.message)); showControls(); }, 230); });
   video.addEventListener('dblclick', () => { clearTimeout(clickTimer); toggleFullscreen().catch(e => toast(e.message)); });
   function seekBy(seconds) {
     if (!Number.isFinite(video.duration)) return;
     video.currentTime = Math.max(0, Math.min(video.duration, video.currentTime + seconds));
-    seekFeedback.textContent = seconds < 0 ? '↶ 10s' : '10s ↷'; seekFeedback.classList.toggle('backward', seconds < 0); seekFeedback.hidden = false;
+    seekFeedback.textContent = seconds < 0 ? `↶ ${Math.abs(seconds)}s` : `${seconds}s ↷`; seekFeedback.classList.toggle('backward', seconds < 0); seekFeedback.hidden = false;
     clearTimeout(feedbackTimer); feedbackTimer = setTimeout(() => { seekFeedback.hidden = true; }, 800); showControls();
   }
-  async function toggleFullscreen() { fullscreenEnabled = await call('fullscreen'); layer.classList.toggle('native-fullscreen', fullscreenEnabled); showControls(); }
+  async function toggleFullscreen() { syncFullscreen(await call('fullscreen')); }
+  function syncFullscreen(enabled) { layer.classList.toggle('native-fullscreen', enabled); document.body.classList.toggle('player-fullscreen', enabled); updateIcon(fullscreenButton, enabled ? 'Exit fullscreen' : 'Fullscreen', 'fullscreen'); fullscreenButton.append(el('span', {}, enabled ? 'Exit fullscreen' : 'Fullscreen')); fullscreenButton.title = enabled ? 'Exit fullscreen (F / Escape)' : 'Fullscreen (F)'; showControls(); }
   function releaseSpace(toggle = false) {
     clearTimeout(spaceTimer);
     const wasDown = spaceDown, wasHeld = spaceHeld; spaceDown = false; spaceHeld = false;
@@ -510,7 +627,7 @@ async function startPlayer(meta, episode, stream, start) {
     if (toggle && wasDown && !wasHeld) Promise.resolve(togglePlay()).catch(e => toast(e.message));
   }
   function onBlur() { releaseSpace(); }
-  function keyup(event) { if (event.code === 'Space' && spaceDown) { event.preventDefault(); releaseSpace(!NymoraUI.typingTarget(event.target)); showControls(); } }
+  function keyup(event) { if (shortcutCode(event) === 'Space' && spaceDown) { event.preventDefault(); releaseSpace(!NymoraUI.typingTarget(event.target)); showControls(); } }
   showControls();
   async function save() {
     if (!Number.isFinite(video.duration) || video.duration <= 0) return;
@@ -527,24 +644,27 @@ async function startPlayer(meta, episode, stream, start) {
     const fullscreen = await call('state'); state = fullscreen;
     await call('stop'); layer.remove(); root.inert = false; currentPlayer = null; document.body.style.overflow = previousOverflow;
     await call('fullscreen', { enabled: false });
+    document.body.classList.remove('player-fullscreen');
   }
   function saveOnExit() { save(); }
   function shortcuts(event) {
     if (NymoraUI.typingTarget(event.target) || event.ctrlKey || event.altKey || event.metaKey) return;
-    if (!['Space', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyM', 'KeyF', 'Escape'].includes(event.code)) return;
+    const code = shortcutCode(event);
+    if (!['Space', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyM', 'KeyF', 'Escape'].includes(code)) return;
     event.preventDefault(); if (event.repeat) return; showControls();
-    if (event.code === 'Space') {
+    if (code === 'Space') {
       if (spaceDown) return; spaceDown = true;
-      spaceTimer = setTimeout(() => { if (!spaceDown || closed) return; previousSpeed = video.playbackRate; spaceHeld = true; video.playbackRate = 2; speedPill.hidden = false; }, 350);
-    } else if (event.code === 'ArrowLeft') seekBy(-10);
-    else if (event.code === 'ArrowRight') seekBy(10);
-    else if (event.code === 'ArrowUp' || event.code === 'ArrowDown') { video.volume = Math.max(0, Math.min(1, video.volume + (event.code === 'ArrowUp' ? 0.05 : -0.05))); volume.value = video.volume; call('settings', { volume: video.volume }).catch(e => toast(e.message)); }
-    else if (event.code === 'KeyM') mute.click();
-    else if (event.code === 'KeyF') toggleFullscreen().catch(e => toast(e.message));
-    else if (event.code === 'Escape') { releaseSpace(); closeMenus(); if (fullscreenEnabled) { fullscreenEnabled = false; call('fullscreen', { enabled: false }).catch(e => toast(e.message)); } }
+      if (state.settings.holdSpace2x) spaceTimer = setTimeout(() => { if (!spaceDown || closed) return; previousSpeed = video.playbackRate; spaceHeld = true; video.playbackRate = 2; speedPill.hidden = false; }, 350);
+    } else if (code === 'ArrowLeft') seekBy(-state.settings.skipInterval);
+    else if (code === 'ArrowRight') seekBy(state.settings.skipInterval);
+    else if (code === 'ArrowUp' || code === 'ArrowDown') { video.volume = Math.max(0, Math.min(1, video.volume + (code === 'ArrowUp' ? 0.05 : -0.05))); volume.value = video.volume; call('settings', { volume: video.volume }).catch(e => toast(e.message)); }
+    else if (code === 'KeyM') mute.click();
+    else if (code === 'KeyF') toggleFullscreen().catch(e => toast(e.message));
+    else if (code === 'Escape') { releaseSpace(); closeMenus(); call('fullscreen', { enabled: false }).then(syncFullscreen).catch(e => toast(e.message)); }
   }
   window.addEventListener('beforeunload', saveOnExit); window.addEventListener('blur', onBlur); document.addEventListener('keydown', shortcuts); document.addEventListener('keyup', keyup);
-  currentPlayer = { close, fullscreen: enabled => { fullscreenEnabled = enabled; layer.classList.toggle('native-fullscreen', enabled); showControls(); } };
+  currentPlayer = { close, fullscreen: syncFullscreen };
+  syncFullscreen(await call(state.settings.startFullscreen ? 'fullscreen' : 'fullscreenState', state.settings.startFullscreen ? { enabled: true } : undefined));
   video.addEventListener('loadedmetadata', () => { seek.max = Number.isFinite(video.duration) ? video.duration : 0; if (start && start < video.duration - 1) video.currentTime = start; status.textContent = 'Ready'; refreshAudio(); });
   video.addEventListener('playing', () => { status.textContent = 'Playing'; playerError.hidden = true; });
   video.addEventListener('waiting', () => { status.textContent = 'Buffering…'; });
@@ -557,6 +677,21 @@ async function startPlayer(meta, episode, stream, start) {
       clearInterval(p2pTimer); await call('stop').catch(e => toast(e.message));
       play.disabled = true; seek.disabled = true;
       p2pInfo.textContent = 'P2P session closed · exit to choose a source again';
+    }
+    if (!closed && meta.type === 'series' && state.settings.autoplayNextEpisode) {
+      const ordered = [...(meta.videos || [])].filter(v => typeof v.id === 'string').sort((a, b) => (a.season || 0) - (b.season || 0) || (a.episode || 0) - (b.episode || 0));
+      const index = ordered.findIndex(v => v.id === episode.id), next = index >= 0 && ordered[index + 1];
+      if (next) {
+        const token = generation;
+        try {
+          await close(); if (token !== generation) return;
+          await openDetails(meta, { id: next.id });
+          if (route?.episodeId !== next.id || currentPlayer || preparingSource) return;
+          const candidates = [...document.querySelectorAll('button.source')].filter(n => n.dataset.provider === (stream.addonName || '') && n.dataset.p2p === String(!!stream.nymoraP2P));
+          const candidate = candidates.find(n => n.dataset.sourceName === (stream.name || '')) || candidates[0];
+          if (candidate) candidate.click(); else toast('Next episode ready. Choose an available source.');
+        } catch (e) { toast(e.message); }
+      }
     }
   });
   video.addEventListener('seeked', () => save().catch(e => toast(e.message)));
@@ -657,4 +792,4 @@ window.nymora.onFullscreen(enabled => currentPlayer?.fullscreen(enabled));
 window.nymora.onClose(async () => { try { if (currentPlayer) await currentPlayer.close(); } finally { await call('quitReady'); } });
 const titlebar = el('div', { className: 'window-titlebar', 'aria-label': 'Window controls', ondblclick: event => { if (!event.target.closest('button')) call('windowControl', { action: 'maximize' }); } }, el('span', { className: 'window-label' }, el('img', { src: 'logo.svg', alt: '', width: 16 }), 'Nymora'), el('div', { className: 'window-buttons' }, ...[['Minimize window', 'minimize', '−'], ['Maximize or restore window', 'maximize', '□'], ['Close window', 'close', '×']].map(([label, action, text]) => { const node = button(text, () => call('windowControl', { action }), 'window-button'); node.setAttribute('aria-label', label); return node; })));
 document.body.prepend(titlebar);
-navigate('Home').then(() => showIntro());
+navigate('Home');

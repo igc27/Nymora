@@ -1,6 +1,7 @@
 'use strict';
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('nymora', {
+  startup: { intro: process.argv.includes('--nymora-intro=1'), sound: process.argv.includes('--nymora-sound=1') },
   onClose(callback) { ipcRenderer.on('prepare-close', () => callback()); },
   onP2PNotice(callback) { ipcRenderer.on('p2p-notice', (_event, notice) => callback(notice)); },
   onP2PNoticeDismiss(callback) { ipcRenderer.on('p2p-notice-dismiss', (_event, nonce) => callback(nonce)); },

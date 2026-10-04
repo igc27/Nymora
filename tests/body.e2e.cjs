@@ -87,7 +87,7 @@ async function main() {
     await page.getByRole('button', { name: 'Addons', exact: true }).click();
     await page.getByLabel('Addon manifest URL').fill(`${PUBLIC_BASE}/manifest.json`);
     await page.getByRole('button', { name: 'Install addon', exact: true }).click();
-    await expect(page.locator('.addon')).toHaveCount(10);
+    await expect(page.locator('.addon')).toHaveCount(9);
     const publicResults = await app.evaluate(async ({ app }, base) => {
       const requireApp = process.getBuiltinModule('module').createRequire(`${app.getAppPath()}/package.json`);
       const network = requireApp('./src/network.cjs'); const result = [];

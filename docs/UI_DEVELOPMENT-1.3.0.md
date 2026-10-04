@@ -4,7 +4,11 @@ Local branch: dev/1.3-ui. Based on preserved release v1.2.0 /
 988b406accbac9f7960c63cfea1675b79d91fb32. No development push, public
 tag, release, or installer upload is authorized without PUBLISH NYMORA.
 
-Installer: release/development/Nymora-1.3.0-dev-Windows-x64-Setup.exe
+This records the earlier 69a81a9 development milestone. The later UI-only
+round is recorded in UI_POLISH-1.3.0.md.
+
+Preserved milestone installer:
+release/development/milestones/1.3.0-dev-69a81a9/Nymora-1.3.0-dev-Windows-x64-Setup.exe
 
 SHA-256: ae87ecedeb79b8e17eeed034df776e80fc7cde2036b4710b0a7fedf411d621cd
 

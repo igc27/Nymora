@@ -7,5 +7,6 @@ fs.copyFileSync('node_modules/hls.js/dist/hls.min.js', 'dist/hls.min.js');
 fs.copyFileSync('src/renderer.js', 'dist/renderer.js');
 fs.copyFileSync('src/ui-data.js', 'dist/ui-data.js');
 fs.copyFileSync('src/settings-ui.js', 'dist/settings-ui.js');
+fs.copyFileSync('src/boot.js', 'dist/boot.js');
 fs.copyFileSync('assets/nymora-cue.wav', 'dist/nymora-cue.wav');
 console.log('Nymora renderer built.');

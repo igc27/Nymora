@@ -50,7 +50,7 @@ async function main() {
     await expect(page.getByRole('button', { name: 'Open Nymora Motion Study' })).toBeVisible(); await expect(page.getByRole('button', { name: 'Open Nymora Test Series' })).toBeVisible(); passed('Addon search returns movie and series');
     await page.getByRole('button', { name: 'Open Nymora Motion Study' }).click(); await expect(page.getByRole('heading', { name: 'Nymora Motion Study', exact: true })).toBeVisible();
     await expect(page.locator('.sources .addon-warning')).toContainText('HTTP 503'); passed('Network failure is a small warning while another addon still supplies streams');
-    await page.getByRole('button', { name: 'Save to Library' }).click(); passed('Movie details and Library save');
+    await page.getByRole('button', { name: 'Add to Watchlist' }).click(); passed('Movie details and Library save');
     await playback('Generated MP4');
     await page.getByLabel('Playback position').evaluate(node => { node.value = '10'; node.dispatchEvent(new Event('input', { bubbles: true })); });
     await page.waitForFunction(() => document.querySelector('video').currentTime >= 10); passed('Seeking works');
@@ -59,7 +59,7 @@ async function main() {
     await page.getByLabel('Volume', { exact: true }).evaluate(node => { node.value = '0.3'; node.dispatchEvent(new Event('input', { bubbles: true })); node.dispatchEvent(new Event('change', { bubbles: true })); });
     expect(await page.locator('video').evaluate(v => v.volume)).toBeCloseTo(0.3); await page.getByRole('button', { name: 'Mute', exact: true }).click(); expect(await page.locator('video').evaluate(v => v.muted)).toBe(true); await page.getByRole('button', { name: 'Unmute', exact: true }).click(); passed('Volume and mute controls');
     await page.getByRole('button', { name: 'Fullscreen', exact: true }).click(); await expect.poll(() => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isFullScreen())).toBe(true); passed('Native fullscreen');
-    await page.getByRole('button', { name: 'Fullscreen', exact: true }).click(); await expect.poll(() => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isFullScreen())).toBe(false);
+    await page.getByRole('button', { name: 'Exit fullscreen', exact: true }).click(); await expect.poll(() => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isFullScreen())).toBe(false);
     await page.getByRole('button', { name: 'Subtitles', exact: true }).click();
     await page.getByLabel('Subtitle track').selectOption({ label: 'English · original test · Nymora legal test addon' });
     await expect(page.getByTestId('subtitle-overlay')).toContainText('Welcome to Nymora'); passed('English addon subtitle rendered');

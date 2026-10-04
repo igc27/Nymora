@@ -15,6 +15,12 @@ const { playableResults, classify } = require('./stream-classification.cjs');
 const { StreamQueries } = require('./stream-queries.cjs');
 const streamQueries = new StreamQueries();
 let store, media, playback, torrents, consent, window, allowClose = false, quitting = false, requestedFullscreen = false;
+async function settledFullscreen(expected) {
+  // Windows can emit its native event before Electron updates isFullScreen().
+  const deadline = Date.now() + 2500;
+  while (!window.isDestroyed() && window.isFullScreen() !== expected && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 16));
+  return !window.isDestroyed() && window.isFullScreen();
+}
 if (process.env.NYMORA_DATA_DIR) app.setPath('userData', path.resolve(process.env.NYMORA_DATA_DIR));
 if (!app.requestSingleInstanceLock()) app.quit();
 app.on('second-instance', () => { if (window) { if (window.isMinimized()) window.restore(); window.focus(); } });
@@ -87,10 +93,13 @@ const operations = {
   },
   settings(value) {
     const next = {};
-    for (const [key, options] of Object.entries({ posterStyle: ['portrait', 'landscape'], interfaceStyle: ['classic', 'glass'], subtitleAppearance: ['shadow', 'outline', 'box'], p2pWaitMode: ['patient', '5m', '10m', 'none'] })) {
+    for (const [key, options] of Object.entries({ videoFit: ['fit', 'fill', 'original'], resumePlayback: ['ask', 'resume', 'restart'], posterStyle: ['portrait', 'landscape'], interfaceStyle: ['classic', 'glass'], subtitleAppearance: ['shadow', 'outline', 'box'], p2pWaitMode: ['patient', '5m', '10m', 'none'] })) {
       if (value[key] !== undefined) { if (!options.includes(value[key])) throw new Error('Invalid preference.'); next[key] = value[key]; }
     }
-    for (const key of ['startupIntro', 'startupSound']) if (typeof value[key] === 'boolean') next[key] = value[key];
+    for (const key of ['startupIntro', 'startupSound', 'startFullscreen', 'holdSpace2x', 'autoplayNextEpisode', 'showP2PStats']) if (typeof value[key] === 'boolean') next[key] = value[key];
+    for (const [key, options] of Object.entries({ skipInterval: [5, 10, 15, 30], controlsHideSeconds: [0, 2, 3, 5], defaultPlaybackSpeed: [.5, .75, 1, 1.25, 1.5, 2] })) {
+      if (value[key] !== undefined) { const number = Number(value[key]); if (!options.includes(number)) throw new Error('Invalid player preference.'); next[key] = number; }
+    }
     if (typeof value.audioLanguage === 'string' && /^[a-z-]{0,20}$/i.test(value.audioLanguage)) next.audioLanguage = value.audioLanguage;
     if (typeof value.blurEpisodeThumbnails === 'boolean') next.blurEpisodeThumbnails = value.blurEpisodeThumbnails;
     for (const key of ['homeCatalogOrder', 'hiddenCatalogs']) {
@@ -110,7 +119,14 @@ const operations = {
     store.data.settings = { ...store.data.settings, ...next }; store.save(); return snapshot();
   },
   async external({ url }) { await shell.openExternal(validURL(url)); },
-  fullscreen: ({ enabled } = {}) => { requestedFullscreen = typeof enabled === 'boolean' ? enabled : !requestedFullscreen; window.setFullScreen(requestedFullscreen); return requestedFullscreen; },
+  fullscreenState: () => window.isFullScreen(),
+  async fullscreen({ enabled } = {}) {
+    requestedFullscreen = typeof enabled === 'boolean' ? enabled : !requestedFullscreen;
+    if (requestedFullscreen) { if (window.isMinimized()) window.restore(); window.focus(); }
+    const expected = requestedFullscreen;
+    if (window.isFullScreen() !== expected) window.setFullScreen(expected);
+    return settledFullscreen(expected);
+  },
   windowControl({ action }) { if (action === 'minimize') window.minimize(); else if (action === 'maximize') window.isMaximized() ? window.unmaximize() : window.maximize(); else if (action === 'close') window.close(); },
   async notices() { return fs.readFileSync(path.join(app.getAppPath(), 'THIRD_PARTY_NOTICES.md'), 'utf8'); }
 };
@@ -135,18 +151,20 @@ app.whenReady().then(async () => {
     }
     callback({ cancel: !allowed });
   });
-  window = new BrowserWindow({ title: 'Nymora', frame: false, fullscreenable: true, width: 1320, height: 860, minWidth: 940, minHeight: 640, backgroundColor: '#0c0e16', icon: path.join(app.getAppPath(), 'assets/icon.ico'), autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true } });
+  window = new BrowserWindow({ title: 'Nymora', frame: false, fullscreenable: true, width: 1320, height: 860, minWidth: 940, minHeight: 640, backgroundColor: '#0c0e16', icon: path.join(app.getAppPath(), 'assets/icon.ico'), autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.cjs'), additionalArguments: [`--nymora-intro=${store.data.settings.startupIntro ? '1' : '0'}`, `--nymora-sound=${store.data.settings.startupSound ? '1' : '0'}`], nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true } });
   window.removeMenu();
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('before-input-event', (_event, input) => {
     if (input.type === 'keyDown' && input.key === 'Escape' && (requestedFullscreen || window.isFullScreen())) { requestedFullscreen = false; window.setFullScreen(false); }
   });
-  window.on('enter-full-screen', () => {
-    window.webContents.send('fullscreen-changed', true);
-    // Windows may defer entering fullscreen. Honor Escape received during it.
-    if (!requestedFullscreen) setImmediate(() => { if (!window.isDestroyed()) window.setFullScreen(false); });
-  });
-  window.on('leave-full-screen', () => { requestedFullscreen = false; window.webContents.send('fullscreen-changed', false); });
+  window.on('enter-full-screen', () => { setImmediate(async () => {
+    await settledFullscreen(true);
+    if (window.isDestroyed()) return;
+    // Honor Escape received during the deferred Windows transition.
+    if (!requestedFullscreen) { window.setFullScreen(false); await settledFullscreen(false); }
+    if (!window.isDestroyed()) window.webContents.send('fullscreen-changed', window.isFullScreen());
+  }); });
+  window.on('leave-full-screen', () => { requestedFullscreen = false; setImmediate(async () => { await settledFullscreen(false); if (!window.isDestroyed()) window.webContents.send('fullscreen-changed', window.isFullScreen()); }); });
   window.on('close', event => {
     consent.cancel();
     streamQueries.cancelAll();
